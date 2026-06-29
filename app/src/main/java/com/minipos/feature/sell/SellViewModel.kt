@@ -1,0 +1,130 @@
+package com.minipos.feature.sell
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.minipos.ServiceLocator
+import com.minipos.data.entity.Party
+import com.minipos.data.entity.PartyType
+import com.minipos.data.entity.PaymentType
+import com.minipos.data.entity.Product
+import com.minipos.data.repo.SaleLineInput
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+/** A product added to the sell cart. */
+data class CartLine(val product: Product, val quantity: Int, val discount: Long) {
+    val lineTotal: Long get() = (product.sellPrice * quantity - discount).coerceAtLeast(0)
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class SellViewModel : ViewModel() {
+
+    private val saleRepo = ServiceLocator.saleRepository
+    private val productRepo = ServiceLocator.productRepository
+    private val partyRepo = ServiceLocator.partyRepository
+
+    private val shopIdState = MutableStateFlow<Long?>(null)
+    fun setShop(shopId: Long) { shopIdState.value = shopId }
+
+    val products: StateFlow<List<Product>> = shopIdState
+        .filterNotNull()
+        .flatMapLatest { productRepo.observeByShop(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val customers: StateFlow<List<Party>> = shopIdState
+        .filterNotNull()
+        .flatMapLatest { partyRepo.observePartiesByType(it, PartyType.CUSTOMER) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _cart = MutableStateFlow<List<CartLine>>(emptyList())
+    val cart: StateFlow<List<CartLine>> = _cart
+
+    fun addToCart(product: Product) {
+        val existing = _cart.value.firstOrNull { it.product.id == product.id }
+        _cart.value = if (existing == null) {
+            _cart.value + CartLine(product, quantity = 1, discount = 0)
+        } else {
+            _cart.value.map { if (it.product.id == product.id) it.copy(quantity = it.quantity + 1) else it }
+        }
+    }
+
+    fun setQuantity(productId: Long, quantity: Int) {
+        _cart.value = if (quantity <= 0) {
+            _cart.value.filterNot { it.product.id == productId }
+        } else {
+            _cart.value.map { if (it.product.id == productId) it.copy(quantity = quantity) else it }
+        }
+    }
+
+    fun setDiscount(productId: Long, discount: Long) {
+        _cart.value = _cart.value.map {
+            if (it.product.id == productId) it.copy(discount = discount.coerceAtLeast(0)) else it
+        }
+    }
+
+    fun clearCart() { _cart.value = emptyList() }
+
+    /** Add a product to the cart by id (used by the Product Details "Sell" quick action). */
+    fun addProductById(productId: Long) = viewModelScope.launch {
+        productRepo.getById(productId)?.let { addToCart(it) }
+    }
+
+    suspend fun createCustomer(name: String, phone: String?): Long {
+        val shopId = shopIdState.value ?: return 0L
+        return partyRepo.addParty(
+            Party(shopId = shopId, name = name, phone = phone, type = PartyType.CUSTOMER, createdAt = 0),
+        )
+    }
+
+    fun confirmCartSale(
+        paymentType: PaymentType,
+        partyId: Long?,
+        paidAmount: Long,
+        note: String?,
+        onDone: () -> Unit,
+    ) = viewModelScope.launch {
+        val shopId = shopIdState.value ?: return@launch
+        val lines = _cart.value.map {
+            SaleLineInput(
+                productId = it.product.id,
+                name = it.product.name,
+                unitPrice = it.product.sellPrice,
+                quantity = it.quantity.toDouble(),
+                discount = it.discount,
+                lineTotal = it.lineTotal,
+            )
+        }
+        if (lines.isEmpty()) return@launch
+        saleRepo.commitSale(shopId, lines, 0, paymentType, partyId, paidAmount, isQuickSale = false, note = note)
+        _cart.value = emptyList()
+        onDone()
+    }
+
+    fun confirmQuickSale(
+        amount: Long,
+        paymentType: PaymentType,
+        partyId: Long?,
+        paidAmount: Long,
+        note: String?,
+        onDone: () -> Unit,
+    ) = viewModelScope.launch {
+        val shopId = shopIdState.value ?: return@launch
+        if (amount <= 0) return@launch
+        val line = SaleLineInput(
+            productId = null,
+            name = "Quick Sale",
+            unitPrice = amount,
+            quantity = 1.0,
+            discount = 0,
+            lineTotal = amount,
+        )
+        saleRepo.commitSale(shopId, listOf(line), 0, paymentType, partyId, paidAmount, isQuickSale = true, note = note)
+        onDone()
+    }
+}

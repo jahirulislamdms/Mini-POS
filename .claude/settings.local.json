@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(java -version)",
+      "Read(//c/Users/PC/AppData/Local/Android/Sdk/platforms/**)",
+      "Read(//c/Users/PC/AppData/Local/Android/Sdk/build-tools/**)",
+      "Read(//c/Users/PC/.gradle/wrapper/dists/**)",
+      "Read(//c/Users/PC/.gradle/caches/modules-2/files-2.1/**)",
+      "Bash(curl -s -m 8 -o /dev/null -w \"google maven HTTP %{http_code}\\\\n\" https://dl.google.com/dl/android/maven2/androidx/room/room-runtime/2.6.1/room-runtime-2.6.1.pom)",
+      "WebSearch",
+      "Bash(curl -s -m 15 \"https://repo1.maven.org/maven2/com/google/devtools/ksp/com.google.devtools.ksp.gradle.plugin/maven-metadata.xml\")",
+      "Bash(curl -s -m 20 \"https://dl.google.com/dl/android/maven2/androidx/navigation/navigation-compose/maven-metadata.xml\")",
+      "Bash(curl -s -m 20 \"https://dl.google.com/dl/android/maven2/androidx/datastore/datastore-preferences/maven-metadata.xml\")",
+      "Bash(curl -s -m 20 \"https://repo1.maven.org/maven2/com/android/tools/desugar_jdk_libs/maven-metadata.xml\")",
+      "Bash(curl -s -m 20 \"https://repo1.maven.org/maven2/com/google/devtools/ksp/symbol-processing-gradle-plugin/2.3.9/symbol-processing-gradle-plugin-2.3.9.pom\")",
+      "Bash(cd \"C:/Users/PC/Desktop/MiniPOS\")",
+      "Bash(export JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\")",
+      "Bash(./gradlew :app:assembleDebug --no-daemon)",
+      "Bash(curl -s -m 20 \"https://dl.google.com/dl/android/maven2/androidx/lifecycle/lifecycle-runtime-compose/maven-metadata.xml\")",
+      "Bash(./gradlew :app:dependencyInsight --dependency org.jetbrains.kotlin:kotlin-stdlib --configuration debugRuntimeClasspath --no-daemon)",
+      "Bash(grep -vE '^\\\\s*$')"
+    ]
+  }
+}

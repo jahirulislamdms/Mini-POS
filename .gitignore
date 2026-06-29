@@ -1,0 +1,48 @@
+# ---- Gradle ----
+.gradle/
+build/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+/captures
+.kotlin/
+
+# ---- Android build outputs ----
+*.apk
+*.aab
+*.ap_
+*.aar
+*.dex
+*.class
+bin/
+gen/
+release/
+obj/
+
+# ---- Local configuration (machine-specific) ----
+local.properties
+*.iml
+
+# ---- Signing / secrets (NEVER commit) ----
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+*.p12
+*.p8
+google-services.json
+secrets.properties
+*.pepk
+
+# ---- Android Studio / IntelliJ ----
+.idea/
+.navigation/
+.externalNativeBuild/
+.cxx/
+
+# ---- OS / editor noise ----
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*~

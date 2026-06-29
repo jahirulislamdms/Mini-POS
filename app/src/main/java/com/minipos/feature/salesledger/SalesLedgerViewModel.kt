@@ -1,0 +1,82 @@
+package com.minipos.feature.salesledger
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.minipos.ServiceLocator
+import com.minipos.core.util.DateFilter
+import com.minipos.core.util.DateUtil
+import com.minipos.core.util.Money
+import com.minipos.data.entity.Sale
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+
+/** A sale plus its resolved customer name (for due sales). */
+data class SaleRow(val sale: Sale, val partyName: String?)
+
+/** Period totals shown above a ledger. */
+data class LedgerTotals(val total: Long, val cashIn: Long, val due: Long)
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class SalesLedgerViewModel : ViewModel() {
+
+    private val saleRepo = ServiceLocator.saleRepository
+    private val partyRepo = ServiceLocator.partyRepository
+
+    private val shopIdState = MutableStateFlow<Long?>(null)
+    private val filterState = MutableStateFlow(DateFilter.DAY)
+    private val customStartState = MutableStateFlow<Long?>(null)
+    private val customEndState = MutableStateFlow<Long?>(null)
+    private val queryState = MutableStateFlow("")
+
+    val filter: StateFlow<DateFilter> = filterState
+    val query: StateFlow<String> = queryState
+    val customStart: StateFlow<Long?> = customStartState
+    val customEnd: StateFlow<Long?> = customEndState
+
+    fun setShop(shopId: Long) { shopIdState.value = shopId }
+    fun setFilter(f: DateFilter) { filterState.value = f }
+    fun setCustomStart(millis: Long) { customStartState.value = millis }
+    fun setCustomEnd(millis: Long) { customEndState.value = millis }
+    fun setQuery(q: String) { queryState.value = q }
+
+    private val salesInRange: StateFlow<List<Sale>> =
+        combine(shopIdState.filterNotNull(), filterState, customStartState, customEndState) { shop, f, cs, ce ->
+            Triple(shop, f, cs to ce)
+        }.flatMapLatest { (shop, f, custom) ->
+            val (start, end) = DateUtil.rangeFor(f, customStart = custom.first, customEnd = custom.second)
+            saleRepo.observeBetween(shop, start, end)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val parties = shopIdState.filterNotNull()
+        .flatMapLatest { partyRepo.observeParties(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val rows: StateFlow<List<SaleRow>> =
+        combine(salesInRange, parties, queryState) { sales, parties, q ->
+            val names = parties.associateBy({ it.id }, { it.name })
+            sales.map { SaleRow(it, it.partyId?.let(names::get)) }
+                .filter { row ->
+                    q.isBlank() ||
+                        row.sale.note?.contains(q, ignoreCase = true) == true ||
+                        row.partyName?.contains(q, ignoreCase = true) == true ||
+                        Money.format(row.sale.total).contains(q)
+                }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val totals: StateFlow<LedgerTotals> = salesInRange
+        .map { list ->
+            LedgerTotals(
+                total = list.sumOf { it.total },
+                cashIn = list.sumOf { it.paidAmount },
+                due = list.sumOf { it.dueAmount },
+            )
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LedgerTotals(0, 0, 0))
+}
