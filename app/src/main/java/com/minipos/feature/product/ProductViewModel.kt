@@ -55,6 +55,20 @@ class ProductViewModel(app: Application) : AndroidViewModel(app) {
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
+    /**
+     * Shop-wide inventory summary for the Products page header (Future Updates Phase 4).
+     * Unaffected by the search/category filter — mirrors the Stock Report's totals so the
+     * numbers always match. Both update automatically as inventory changes.
+     */
+    val totalUnits: StateFlow<Double> = baseProducts
+        .map { list -> list.sumOf { it.stock } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
+
+    val totalStockValue: StateFlow<Long> = shopIdState
+        .filterNotNull()
+        .flatMapLatest { productRepo.observeStockValue(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
+
     val categories: StateFlow<List<Category>> = shopIdState
         .filterNotNull()
         .flatMapLatest { categoryRepo.observeAll(it) }

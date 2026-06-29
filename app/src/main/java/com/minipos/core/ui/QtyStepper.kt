@@ -24,6 +24,7 @@ fun QtyStepper(
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     min: Int = 0,
+    max: Int? = null,
     step: Int = 1,
 ) {
     Row(
@@ -45,7 +46,8 @@ fun QtyStepper(
             modifier = Modifier.widthIn(min = 32.dp),
         )
         FilledTonalIconButton(
-            onClick = { onValueChange(value + step) },
+            onClick = { onValueChange((value + step).let { if (max != null) it.coerceAtMost(max) else it }) },
+            enabled = max == null || value < max,
             modifier = Modifier.size(40.dp),
         ) {
             Icon(Icons.Filled.Add, contentDescription = "Increase")

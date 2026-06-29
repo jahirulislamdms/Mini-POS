@@ -34,7 +34,10 @@ When done: tick the box, advance CURRENT POSITION, add a SESSION LOG line, then 
 
 ## ★ CURRENT POSITION
 **Phase:** POST-RELEASE — Phases 1 (Bug Fix), 2 (Sell/Products/Nav) & 3 (Cash mgmt · Daily report · Backup reminder) COMPLETE.
-**Next task:** (none active) — all post-release phases done & compiling (assembleDebug ✓; DB v3). See "POST-RELEASE PLAN" below.
+**Next task:** Future Updates **Phase 2 – Offline License Activation System** — the only remaining roadmap item,
+intentionally **deferred** until the user signals to start it. Future Updates **Phases 1 (First-Time Setup chooser),
+3 (Product Management), 4 (Product Summary), 5 (Sell/Cart Redesign) & 6 (Stock Validation for Selling)** are DONE
+(assembleDebug ✓). See the FUTURE UPDATES (ROADMAP) section below.
 
 **STATUS THIS SESSION (post-release work; all 12 original build phases were already complete):**
 - ✅ **Finished:** Phase 1 (crash fixes + yellow theme + dashboard credit + About + yellow icon), Phase 2 (Sell
@@ -122,6 +125,105 @@ Room 2.8.4 / KSP 2.3.9. Build: `JAVA_HOME="C:/Program Files/Android/Android Stud
 
 ---
 
+## 🔮 FUTURE UPDATES (ROADMAP)
+> Owner-requested post-release work. **Phases 1, 3, 4 & 5 are implemented; only Phase 2 (Offline License Activation)
+> remains, intentionally deferred.** For any unbuilt phase, a box is ticked `[x]` only where the current app already
+> satisfies that exact requirement.
+
+### Future Updates Phase 1 – First-Time Setup Improvement   ✅ COMPLETE (2026-06-29)
+**Goal:** Improve the first-time setup experience (must work completely offline).
+- [x] On first launch (no shops yet), show a chooser with **Create a New Shop** and **Restore from Backup**
+      (`feature/shop/FirstRunSetupScreen`; `AppRoot` renders it for the `ShopGate.None` state instead of the create form).
+- [x] Restore a backup immediately, without creating a new shop first
+      (the chooser's "Restore from Backup" opens the SAF `.zip` picker → `BackupManager.import`; no existing shop needed).
+- [x] After a successful restore, the restored shop becomes the active shop and the app opens normally
+      (`BackupManager.import` calls `setCurrentShop`; the AppRoot gate flips to the main shell automatically).
+- [x] "Create a New Shop" continues the existing setup flow (the chooser branches into the existing `ShopFormScreen`; back returns to the chooser).
+- [x] Works completely offline (SAF + Room only; no network).
+- [x] assembleDebug ✓.
+
+### Future Updates Phase 2 – Offline License Activation System   ⏳ Not Started
+**Goal:** A 100% offline licensing system for selling the app (no internet, server, or Play services). Nothing exists yet.
+- **License Activation screen**
+  - [ ] Show an activation screen before app access: MINI POS logo, app name, current version, read-only Device ID, Copy-Device-ID button, license-key field, Activate button.
+  - [ ] Keep the app locked until a valid key is entered.
+- **Device ID**
+  - [ ] Generate a unique Device ID once on first install; save permanently; show on the activation screen; copy with one tap (customer sends it to the owner).
+- **Python License Generator (separate, owner-only project)**
+  - [ ] Create a standalone `license_generator/` Python project (`main.py`, generator, `requirements.txt`, `README.md`) in the repo root, fully independent of the Android app.
+  - [ ] Owner enters Device ID + expiry date → generates a secure key for that device. The Android app must **never** generate keys.
+- **Git**
+  - [ ] Keep `license_generator/` **private** — add it to `.gitignore`; never push it to the public repo.
+- **Offline verification**
+  - [ ] App verifies offline that the license is genuine, belongs to this Device ID, and has not expired. No internet ever.
+- **Device lock**
+  - [ ] A license works only on its Device ID; on another device, activation fails with a "belongs to another device" message.
+- **License expiry**
+  - [ ] On every start, check expiry; if expired → lock the app, return to activation, allow activating a new license.
+- **Successful activation**
+  - [ ] Save activation securely; skip the activation screen on future launches; open normally.
+- **License Management (Settings)**
+  - [ ] Add a License Management section: status, Device ID, expiry date, remaining days, Copy-Device-ID; actions **Renew** & **Replace**. Updating the license must never affect shop/user data.
+- **Contact info**
+  - [ ] Show "Need a license key? Contact the Software Owner — **Jahirul Islam** — https://jahirulislam.info/" (clickable) on both the Activation and License Management screens. (Name + website already appear on About/dashboard; these screens are new.)
+- **Security**
+  - [ ] Public/private-key crypto: private key only in the Python generator; only the **public key** ships in the app; users cannot forge keys.
+- **Architecture**
+  - [ ] Keep all licensing code in its own package/module, isolated from POS logic; Android app and Python generator share no dependency.
+
+### Future Updates Phase 3 – Product Management Improvements   ✅ COMPLETE (2026-06-29)
+**Goal:** Better product management in **Products** and **Settings → Products & inventory**.
+- [x] Add a **Delete Product** option to the product edit screen — wired `ProductViewModel.delete` to a red "Delete product" button in `ProductFormScreen` (edit mode only), with a `ConfirmDialog`.
+- [x] Allow deletion only when current stock is **0**; otherwise block with: *"This product still has stock. Remove all stock before deleting."* (inline red message; the confirm dialog never opens).
+- [x] Hide **0-stock** products from **Sell → Product List** (`SellScreen` "Tap to add" now filters `stock > 0`).
+- [x] Keep 0-stock products visible in the **Products** screen (unchanged — still shows all products).
+- [x] **Only the selling screen** hides out-of-stock products. **Decision:** the spec also said "hide from the Stock Report," but that contradicts "only the selling screen should hide." Honored the final/most-specific instruction → **Stock Report left unchanged** (keeps inventory auditing complete). Trivial to also hide there later if wanted.
+- [x] In the stock-adjustment (both `ProductFormScreen` edit mode **and** `UpdateStockScreen`), prevent removing more than the available stock — no negative stock; shows *"Cannot remove more than current stock (N)."*
+- After delete, `AppRoot` pops both the edit form and the now-stale Product Details page (back to the Products list). assembleDebug ✓
+
+### Future Updates Phase 4 – Product Summary   ✅ COMPLETE (2026-06-29)
+**Goal:** Show an inventory summary on the Products screen.
+- [x] Show **Total units** and **Stock value** in a two-card header at the top of the **Products** page (`ProductListScreen`, above the search box).
+- [x] Reuse the same calculation/design as the **Stock Report** — `totalStockValue` from `ProductRepository.observeStockValue`, `totalUnits` = Σ stock; cards mirror the report's StatCard/units-card look. Numbers always match the Stock Report.
+- [x] Updates automatically whenever inventory changes (Room Flow → StateFlow). The summary is **shop-wide** — intentionally unaffected by the search/category filter.
+
+### Future Updates Phase 5 – Sell Screen & Cart Redesign   ✅ COMPLETE (2026-06-29)
+**Goal:** Simplify/modernize selling (was: inline cart + ChargeBar + CheckoutDialog).
+- [x] Cart is no longer a bulky inline section — the **product list is the primary focus**; in-cart products show a small yellow "In cart: N" pill on their row.
+- [x] Compact **Continue** bottom bar (item count + total) replaces the old ChargeBar. On **Continue** a popup cart summary opens (per-line name, unit price, qty, line total, grand total).
+- [x] Large **Confirm Sell ৳total** button inside the popup — the sale is committed **only** when it is pressed (`confirmCartSale`).
+- [x] Popup is **scrollable** (items + payment scroll together) with the **Confirm Sell** button **sticky** at the bottom (`Dialog` + `Surface`, middle `Column.weight(1f).verticalScroll`).
+- [x] Modern POS-style UX; payment (Cash/Due, customer pick/create, partial paid, note) lives in the same popup so Confirm Sell finalises in one place.
+- **Quick Sell** unchanged → still uses the shared `CheckoutDialog`. **Buy's** shared `CheckoutDialog` left fully intact. Editing qty to 0 in the popup removes the line; emptying the cart auto-closes the popup. assembleDebug ✓
+
+# Future Updates Phase 6 – Stock Validation for Selling
+
+**Status:** ✅ COMPLETE (2026-06-29)
+
+### Goal
+
+Prevent users from selling more products than the available stock.
+
+### Requirements
+
+* Currently, the app allows users to sell more than the available stock. For example, if a product has **5** units in stock, the user can still sell **6 or more**, which should not be allowed.
+* Update **all Sell options** in the app to ensure users can only sell up to the available stock quantity.
+* This validation must apply to:
+
+  * The main **Sell** screen.
+  * **Products → Product Details → Sell**.
+* Do **not** modify any other options. Only update the **Sell** functionality to enforce the available stock limit.
+
+### Implementation
+- [x] Cap enforced centrally in `SellViewModel` (`maxSellable(product) = floor(stock)`), so **both** Sell paths are covered — the main Sell screen *and* Product Details → Sell both funnel through this cart.
+  - `addToCart`: out-of-stock products add nothing; once the line hits stock it stops incrementing.
+  - `setQuantity`: requested qty is clamped to available stock.
+- [x] In the **Review sale** popup, the qty stepper's **+** is disabled at the stock limit (`QtyStepper` gained an optional `max`; default `null` keeps Update-Stock unbounded).
+- [x] User feedback: a one-shot `SellViewModel.messages` flow shows a snackbar (*"Only N in stock"* / *"… is out of stock"*) when a limit is hit.
+- [x] **Quick Sell** exempt (no product/stock). **Buy**, stock adjustments, and all other flows untouched. assembleDebug ✓.
+
+---
+
 ## ✅ TASK CHECKLIST
 
 ### P1 — Project & Theme
@@ -197,6 +299,12 @@ Room 2.8.4 / KSP 2.3.9. Build: `JAVA_HOME="C:/Program Files/Android/Android Stud
 ---
 
 ## 📝 SESSION LOG (newest at top, one line each)
+- 2026-06-29 — Future Updates Phase 6 done (Stock Validation for Selling): SellViewModel now caps cart qty at available stock (maxSellable=floor(stock)) in addToCart + setQuantity — covers both the main Sell screen and Product Details→Sell (same cart); Review-popup QtyStepper "+" disabled at the limit (new optional QtyStepper.max, default null so Update-Stock is unbounded); one-shot SellViewModel.messages→snackbar ("Only N in stock"/"… is out of stock"). Quick Sell exempt; Buy & all other flows untouched. assembleDebug ✓.
+- 2026-06-29 — Future Updates Phase 5 done (Sell/Cart redesign): product list is now primary (removed bulky inline cart; in-cart rows show a yellow "In cart: N" pill); ChargeBar→compact ContinueBar; new CartSummaryDialog ("Review sale") — scrollable items+payment with a sticky "Confirm Sell ৳total" button that's the only commit action; payment (Cash/Due, customer pick/create, partial paid, note) moved into the popup. Quick Sell still uses shared CheckoutDialog; Buy's CheckoutDialog untouched. assembleDebug ✓.
+- 2026-06-29 — Future Updates Phase 4 done (Product Summary): added a two-card header (Total units · Stock value) at the top of ProductListScreen; new ProductViewModel.totalUnits (Σ stock) + totalStockValue (reuses ProductRepository.observeStockValue) — shop-wide (not filtered by search/category), live via Room Flow→StateFlow, matches the Stock Report totals/design. assembleDebug ✓.
+- 2026-06-29 — Future Updates Phase 3 done (Product Management): wired Delete product in ProductFormScreen edit mode (red button + ConfirmDialog) — blocked unless stock==0 with "This product still has stock. Remove all stock before deleting."; SellScreen "Tap to add" now hides stock≤0 (only the selling screen hides — Stock Report deliberately left showing all, resolving the spec contradiction); stock-adjustment in both ProductFormScreen & UpdateStockScreen refuses removing more than current stock (no negative); AppRoot pops form+stale detail after delete. Phase 2 (license) deferred per user. assembleDebug ✓.
+- 2026-06-29 — Future Updates Phase 1 done: first-run setup chooser (FirstRunSetupScreen) — Create a New Shop (→ existing ShopFormScreen) or Restore from Backup (→ SAF .zip → BackupManager.import, no existing shop needed; restored shop becomes active & app opens). AppRoot's ShopGate.None now shows the chooser. Offline. assembleDebug ✓.
+- 2026-06-29 — Roadmap: added "Future Updates (Roadmap)" to PROGRESS.md — 5 owner-requested phases (First-time setup chooser, Offline license activation + Python generator, Product management improvements, Product summary on Products page, Sell cart redesign), all as checkboxes; pre-ticked only the 2 items the app already satisfies (restore→active shop, offline). No code changed.
 - 2026-06-29 — Docs: added CLAUDE.md (project overview, tech stack, source-of-truth pointers, "read BUILD_PLAN.md & PROGRESS.md first" rule); consolidated PROGRESS.md CURRENT POSITION (status + decisions for post-release Phases 1–3, replaced stale P11/P12 planning notes).
 - 2026-06-29 — Post-release Phase 3: Cash Management (CashTransaction entity + DB v3 migration, repo/VM/screen; affects Current Balance only, in backup); Daily Transactions Report (sales+purchases, single day or ≤1-month range, totals+profit+itemised lines); Backup Reminder (daily local notification at customizable time, default 10 PM, enable/disable via DataStore + self-rescheduling WorkManager). assembleDebug ✓ (schema v3, 16 tables).
 - 2026-06-28 — Post-release Phase 2: Sell defaults to Products mode; new read-only Product Details page (Sell/Buy/Edit quick actions, edit-protected) + manual stock adjustment in edit mode (ADJUSTMENT movement, no sale); bottom nav Buy→Products (Buy still via Home button & detail). Nav: Products is an inner tab; product detail/form/update-stock are root pushes; Sell/Buy accept optional initialProductId. assembleDebug ✓.

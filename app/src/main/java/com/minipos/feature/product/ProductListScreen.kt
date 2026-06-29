@@ -42,11 +42,13 @@ import coil3.compose.AsyncImage
 import com.minipos.core.theme.AppBackground
 import com.minipos.core.theme.ExpenseRed
 import com.minipos.core.theme.BrandYellow
+import com.minipos.core.theme.OnSurface
 import com.minipos.core.theme.OnYellow
 import com.minipos.core.theme.TextMuted
 import com.minipos.core.ui.AppCard
 import com.minipos.core.ui.AppTopBar
 import com.minipos.core.ui.EmptyState
+import com.minipos.core.ui.StatCard
 import com.minipos.core.util.ImageStorage
 import com.minipos.core.util.Money
 import com.minipos.data.entity.Product
@@ -68,6 +70,8 @@ fun ProductListScreen(
     val query by vm.query.collectAsStateWithLifecycle()
     val selectedCategory by vm.categoryFilter.collectAsStateWithLifecycle()
     val lowStockDefault by vm.lowStockDefault.collectAsStateWithLifecycle()
+    val totalUnits by vm.totalUnits.collectAsStateWithLifecycle()
+    val totalStockValue by vm.totalStockValue.collectAsStateWithLifecycle()
 
     val topCategories = categories.filter { it.parentId == null }
 
@@ -81,6 +85,15 @@ fun ProductListScreen(
         },
     ) { innerPadding ->
         Column(Modifier.fillMaxSize().padding(innerPadding)) {
+            // Shop-wide inventory summary (Phase 4) — same totals as the Stock Report; live-updating.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SummaryCard("Total units", totalUnits.asQty(), Modifier.weight(1f))
+                StatCard("Stock value", totalStockValue, OnSurface, Modifier.weight(1f))
+            }
+
             OutlinedTextField(
                 value = query,
                 onValueChange = { vm.setQuery(it) },
@@ -198,6 +211,15 @@ private fun ProductRow(
                 )
             }
         }
+    }
+}
+
+/** Non-money summary tile (count) — matches StatCard's muted-label-over-value design. */
+@Composable
+private fun SummaryCard(label: String, value: String, modifier: Modifier) {
+    AppCard(modifier = modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = TextMuted)
+        Text(value, style = MaterialTheme.typography.titleMedium, color = OnSurface)
     }
 }
 

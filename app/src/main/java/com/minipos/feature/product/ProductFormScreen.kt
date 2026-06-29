@@ -18,10 +18,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -45,10 +47,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil3.compose.AsyncImage
 import com.minipos.core.theme.AppBackground
 import com.minipos.core.theme.BrandYellow
+import com.minipos.core.theme.ExpenseRed
 import com.minipos.core.theme.TextMuted
 import com.minipos.core.ui.AppDropdown
 import com.minipos.core.ui.AppTextField
 import com.minipos.core.ui.AppTopBar
+import com.minipos.core.ui.ConfirmDialog
 import com.minipos.core.ui.PrimaryButton
 import com.minipos.core.ui.QtyStepper
 import com.minipos.core.ui.SecondaryButton
@@ -64,6 +68,7 @@ fun ProductFormScreen(
     shopId: Long,
     editingId: Long?,
     onClose: () -> Unit,
+    onDeleted: () -> Unit = onClose,
 ) {
     val vm: ProductViewModel = viewModel()
     val context = LocalContext.current
@@ -103,6 +108,11 @@ fun ProductFormScreen(
     var adjustAmount by remember { mutableIntStateOf(1) }
     var adjustIsAdd by remember { mutableStateOf(true) }
     var adjustNote by remember { mutableStateOf("") }
+    var adjustError by remember { mutableStateOf<String?>(null) }
+
+    // Delete (edit mode only) — allowed only when stock is exactly 0.
+    var showDeleteConfirm by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(editingId) {
         if (editingId != null) {
@@ -262,14 +272,23 @@ fun ProductFormScreen(
                     onClick = {
                         val current = loaded
                         if (current != null && adjustAmount > 0) {
-                            val delta = if (adjustIsAdd) adjustAmount.toDouble() else -adjustAmount.toDouble()
-                            vm.applyStockChange(current, delta, adjustNote.trim().ifBlank { null })
-                            loaded = current.copy(stock = current.stock + delta)
-                            adjustAmount = 1
-                            adjustNote = ""
+                            if (!adjustIsAdd && adjustAmount > current.stock) {
+                                // Never let an adjustment drive stock negative.
+                                adjustError = "Cannot remove more than current stock (${current.stock.asInput()})."
+                            } else {
+                                val delta = if (adjustIsAdd) adjustAmount.toDouble() else -adjustAmount.toDouble()
+                                vm.applyStockChange(current, delta, adjustNote.trim().ifBlank { null })
+                                loaded = current.copy(stock = current.stock + delta)
+                                adjustAmount = 1
+                                adjustNote = ""
+                                adjustError = null
+                            }
                         }
                     },
                 )
+                adjustError?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = ExpenseRed)
+                }
                 Text(
                     "Stock adjustments correct inventory only — they are not recorded as a sale.",
                     style = MaterialTheme.typography.bodySmall,
@@ -314,7 +333,45 @@ fun ProductFormScreen(
                     }
                 },
             )
+
+            if (editingId != null) {
+                OutlinedButton(
+                    onClick = {
+                        val current = loaded
+                        if (current != null && current.stock != 0.0) {
+                            deleteError = "This product still has stock. Remove all stock before deleting."
+                        } else {
+                            deleteError = null
+                            showDeleteConfirm = true
+                        }
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ExpenseRed),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Delete product")
+                }
+                deleteError?.let {
+                    Text(it, style = MaterialTheme.typography.bodySmall, color = ExpenseRed)
+                }
+            }
         }
+    }
+
+    if (showDeleteConfirm) {
+        val current = loaded
+        ConfirmDialog(
+            title = "Delete product?",
+            message = "\"${current?.name.orEmpty()}\" will be permanently deleted. This cannot be undone.",
+            confirmText = "Delete",
+            onConfirm = {
+                showDeleteConfirm = false
+                if (current != null) {
+                    vm.delete(current)
+                    onDeleted()
+                }
+            },
+            onDismiss = { showDeleteConfirm = false },
+        )
     }
 }
 

@@ -9,7 +9,9 @@ import com.minipos.data.entity.PaymentType
 import com.minipos.data.entity.Product
 import com.minipos.data.repo.SaleLineInput
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
@@ -45,12 +47,29 @@ class SellViewModel : ViewModel() {
     private val _cart = MutableStateFlow<List<CartLine>>(emptyList())
     val cart: StateFlow<List<CartLine>> = _cart
 
+    /** One-shot user messages (e.g. stock limit hit) for the screen to show as a snackbar. */
+    private val _messages = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val messages: SharedFlow<String> = _messages
+
+    /** Max whole units sellable for a product (the cart uses integer quantities). */
+    private fun maxSellable(product: Product): Int = product.stock.toInt().coerceAtLeast(0)
+
     fun addToCart(product: Product) {
+        // Phase 6: never let the cart exceed available stock.
+        val max = maxSellable(product)
+        if (max <= 0) {
+            _messages.tryEmit("${product.name} is out of stock")
+            return
+        }
         val existing = _cart.value.firstOrNull { it.product.id == product.id }
-        _cart.value = if (existing == null) {
-            _cart.value + CartLine(product, quantity = 1, discount = 0)
+        if (existing == null) {
+            _cart.value = _cart.value + CartLine(product, quantity = 1, discount = 0)
+        } else if (existing.quantity >= max) {
+            _messages.tryEmit("Only $max in stock")
         } else {
-            _cart.value.map { if (it.product.id == product.id) it.copy(quantity = it.quantity + 1) else it }
+            _cart.value = _cart.value.map {
+                if (it.product.id == product.id) it.copy(quantity = it.quantity + 1) else it
+            }
         }
     }
 
@@ -58,7 +77,17 @@ class SellViewModel : ViewModel() {
         _cart.value = if (quantity <= 0) {
             _cart.value.filterNot { it.product.id == productId }
         } else {
-            _cart.value.map { if (it.product.id == productId) it.copy(quantity = quantity) else it }
+            _cart.value.map {
+                if (it.product.id == productId) {
+                    // Phase 6: cap the requested quantity at the available stock.
+                    val max = maxSellable(it.product)
+                    val capped = quantity.coerceAtMost(max)
+                    if (capped < quantity) _messages.tryEmit("Only $max in stock")
+                    it.copy(quantity = capped)
+                } else {
+                    it
+                }
+            }
         }
     }
 

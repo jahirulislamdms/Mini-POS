@@ -35,6 +35,7 @@ import com.minipos.feature.report.StockReportScreen
 import com.minipos.feature.purchaseledger.PurchaseLedgerScreen
 import com.minipos.feature.salesledger.SaleDetailScreen
 import com.minipos.feature.salesledger.SalesLedgerScreen
+import com.minipos.feature.shop.FirstRunSetupScreen
 import com.minipos.feature.shop.ShopFormScreen
 import com.minipos.feature.shop.ShopSwitcherScreen
 
@@ -59,7 +60,7 @@ fun AppRoot() {
 
     when (val g = gate) {
         ShopGate.Loading -> LoadingScreen()
-        ShopGate.None -> ShopFormScreen(editingId = null, firstRun = true, onClose = {})
+        ShopGate.None -> FirstRunSetupScreen()
         is ShopGate.Selected -> key(g.shopId) { MainScaffold(shopId = g.shopId) }
     }
 }
@@ -146,6 +147,11 @@ private fun MainScaffold(shopId: Long) {
                 shopId = shopId,
                 editingId = productId,
                 onClose = { navController.popBackStack() },
+                // After delete, also pop the now-stale Product Details page beneath the form.
+                onDeleted = {
+                    navController.popBackStack()
+                    navController.popBackStack()
+                },
             )
         }
         composable(

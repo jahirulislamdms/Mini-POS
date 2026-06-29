@@ -59,6 +59,7 @@ fun UpdateStockScreen(
     var amount by remember { mutableIntStateOf(1) }
     var isAdd by remember { mutableStateOf(true) }
     var note by remember { mutableStateOf("") }
+    var error by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         containerColor = AppBackground,
@@ -102,12 +103,21 @@ fun UpdateStockScreen(
                 enabled = product != null,
                 onClick = {
                     val p = product ?: return@PrimaryButton
+                    if (!isAdd && amount > p.stock) {
+                        // Never let a removal drive stock negative.
+                        error = "Cannot remove more than current stock (${p.stock.asQty()})."
+                        return@PrimaryButton
+                    }
                     val delta = if (isAdd) amount.toDouble() else -amount.toDouble()
                     vm.applyStockChange(p, delta, note.trim().ifBlank { null })
                     amount = 1
                     note = ""
+                    error = null
                 },
             )
+            error?.let {
+                Text(it, style = MaterialTheme.typography.bodySmall, color = ExpenseRed)
+            }
 
             SectionHeader("Movement history")
             if (movements.isEmpty()) {
