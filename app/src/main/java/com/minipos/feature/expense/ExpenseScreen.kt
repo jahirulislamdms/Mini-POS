@@ -145,9 +145,10 @@ fun ExpenseScreen(
         ExpenseDialog(
             initial = null,
             categories = categories,
-            onSave = { amount, categoryId, note, date ->
-                vm.add(amount, categoryId, note, date)
-                showAdd = false
+            onSave = { amount, categoryId, note, date, onError ->
+                vm.add(amount, categoryId, note, date) { ok, err ->
+                    if (ok) showAdd = false else if (err != null) onError(err)
+                }
             },
             onDelete = null,
             onDismiss = { showAdd = false },
@@ -157,7 +158,7 @@ fun ExpenseScreen(
         ExpenseDialog(
             initial = expense,
             categories = categories,
-            onSave = { amount, categoryId, note, date ->
+            onSave = { amount, categoryId, note, date, _ ->
                 vm.update(expense.copy(amount = amount, categoryId = categoryId, note = note, createdAt = date))
                 editing = null
             },
@@ -171,7 +172,7 @@ fun ExpenseScreen(
 private fun ExpenseDialog(
     initial: Expense?,
     categories: List<ExpenseCategory>,
-    onSave: (amount: Long, categoryId: Long?, note: String?, date: Long) -> Unit,
+    onSave: (amount: Long, categoryId: Long?, note: String?, date: Long, onError: (String) -> Unit) -> Unit,
     onDelete: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
@@ -214,7 +215,7 @@ private fun ExpenseDialog(
                     amountError = "Enter a valid amount"
                     return@TextButton
                 }
-                onSave(paisa, categoryId, note.trim().ifBlank { null }, date)
+                onSave(paisa, categoryId, note.trim().ifBlank { null }, date) { msg -> amountError = msg }
             }) { Text("Save") }
         },
         dismissButton = {

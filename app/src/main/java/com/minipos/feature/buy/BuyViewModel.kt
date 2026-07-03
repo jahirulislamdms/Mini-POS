@@ -48,7 +48,8 @@ class BuyViewModel : ViewModel() {
     fun addToCart(product: Product) {
         val existing = _cart.value.firstOrNull { it.product.id == product.id }
         _cart.value = if (existing == null) {
-            _cart.value + BuyLine(product, quantity = 1, unitPrice = product.buyPrice)
+            // Phase 10: items start at quantity 0 — the user sets the amount before paying.
+            _cart.value + BuyLine(product, quantity = 0, unitPrice = product.buyPrice)
         } else {
             _cart.value.map { if (it.product.id == product.id) it.copy(quantity = it.quantity + 1) else it }
         }
@@ -75,6 +76,18 @@ class BuyViewModel : ViewModel() {
         productRepo.getById(productId)?.let { addToCart(it) }
     }
 
+    /** Scan-to-buy (Phase 28): find by barcode and add to the cart; [onResult] gets feedback. */
+    fun addByBarcode(code: String, onResult: (String) -> Unit) = viewModelScope.launch {
+        val shopId = shopIdState.value ?: return@launch
+        val product = productRepo.getByBarcode(shopId, code.trim())
+        if (product == null) {
+            onResult("No product found for this barcode")
+        } else {
+            addToCart(product)
+            onResult("Added: ${product.name}")
+        }
+    }
+
     suspend fun createSupplier(name: String, phone: String?): Long {
         val shopId = shopIdState.value ?: return 0L
         return partyRepo.addParty(
@@ -87,10 +100,11 @@ class BuyViewModel : ViewModel() {
         partyId: Long?,
         paidAmount: Long,
         note: String?,
-        onDone: () -> Unit,
+        onDone: (purchaseId: Long) -> Unit,
     ) = viewModelScope.launch {
         val shopId = shopIdState.value ?: return@launch
-        val lines = _cart.value.map {
+        // Phase 10: never purchase a 0-quantity line.
+        val lines = _cart.value.filter { it.quantity > 0 }.map {
             PurchaseLineInput(
                 productId = it.product.id,
                 name = it.product.name,
@@ -101,8 +115,8 @@ class BuyViewModel : ViewModel() {
             )
         }
         if (lines.isEmpty()) return@launch
-        purchaseRepo.commitPurchase(shopId, lines, 0, paymentType, partyId, paidAmount, note)
+        val purchaseId = purchaseRepo.commitPurchase(shopId, lines, 0, paymentType, partyId, paidAmount, note)
         _cart.value = emptyList()
-        onDone()
+        onDone(purchaseId)
     }
 }

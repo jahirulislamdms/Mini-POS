@@ -60,6 +60,16 @@ interface PartyDao {
     @Query("DELETE FROM dues WHERE shopId = :shopId")
     suspend fun deleteDuesForShop(shopId: Long)
 
+    // --- Undo (Phase 15): remove the due (and its payments) created by a sale/purchase ---
+    @Query("SELECT * FROM dues WHERE shopId = :shopId AND refType = :refType AND refId = :refId")
+    suspend fun getDuesByRef(shopId: Long, refType: String, refId: Long): List<Due>
+
+    @Query("DELETE FROM dues WHERE id = :id")
+    suspend fun deleteDueById(id: Long)
+
+    @Query("DELETE FROM due_payments WHERE dueId = :dueId")
+    suspend fun deletePaymentsByDueId(dueId: Long)
+
     // --- DuePayment ---
     @Insert suspend fun insertPayment(payment: DuePayment): Long
 

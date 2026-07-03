@@ -11,11 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -112,9 +110,6 @@ fun CashManagementScreen(
                                     color = if (isIn) IncomeGreen else ExpenseRed,
                                     fontWeight = FontWeight.SemiBold,
                                 )
-                                IconButton(onClick = { vm.delete(txn) }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Delete", tint = TextMuted)
-                                }
                             }
                         }
                     }
@@ -126,9 +121,10 @@ fun CashManagementScreen(
     entryType?.let { type ->
         CashEntryDialog(
             type = type,
-            onConfirm = { amount, note ->
-                vm.add(amount, type, note)
-                entryType = null
+            onSubmit = { amount, note, setError ->
+                vm.add(amount, type, note) { ok, err ->
+                    if (ok) entryType = null else if (err != null) setError(err)
+                }
             },
             onDismiss = { entryType = null },
         )
@@ -138,7 +134,7 @@ fun CashManagementScreen(
 @Composable
 private fun CashEntryDialog(
     type: CashType,
-    onConfirm: (amount: Long, note: String?) -> Unit,
+    onSubmit: (amount: Long, note: String?, onError: (String) -> Unit) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var amount by remember { mutableStateOf("") }
@@ -165,7 +161,7 @@ private fun CashEntryDialog(
                     error = "Enter a valid amount"
                     return@TextButton
                 }
-                onConfirm(paisa, note.trim().ifBlank { null })
+                onSubmit(paisa, note.trim().ifBlank { null }) { msg -> error = msg }
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

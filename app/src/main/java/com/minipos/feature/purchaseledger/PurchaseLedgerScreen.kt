@@ -12,7 +12,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.ShoppingBag
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -20,12 +23,15 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.minipos.core.print.ReceiptPrinter
 import com.minipos.core.theme.AppBackground
 import com.minipos.core.theme.ExpenseRed
 import com.minipos.core.theme.OnSurface
@@ -41,6 +47,7 @@ import com.minipos.core.ui.StatCard
 import com.minipos.core.util.DateFilter
 import com.minipos.core.util.DateUtil
 import com.minipos.data.entity.PaymentType
+import kotlinx.coroutines.launch
 
 /** Purchase history with date filters, search, totals and tap-to-detail (P6.3). */
 @Composable
@@ -51,6 +58,8 @@ fun PurchaseLedgerScreen(
 ) {
     val vm: PurchaseLedgerViewModel = viewModel()
     LaunchedEffect(shopId) { vm.setShop(shopId) }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
 
     val rows by vm.rows.collectAsStateWithLifecycle()
     val totals by vm.totals.collectAsStateWithLifecycle()
@@ -115,6 +124,12 @@ fun PurchaseLedgerScreen(
                                     Text(sub, style = MaterialTheme.typography.bodySmall, color = TextMuted)
                                 }
                                 AmountText(row.purchase.total, AmountType.EXPENSE)
+                                // Phase 29: reprint the receipt (unchanged transaction).
+                                IconButton(onClick = {
+                                    scope.launch { ReceiptPrinter.printPurchase(context, row.purchase.id) }
+                                }) {
+                                    Icon(Icons.Filled.Print, contentDescription = "Reprint receipt", tint = TextMuted)
+                                }
                             }
                         }
                     }

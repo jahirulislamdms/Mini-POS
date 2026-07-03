@@ -12,12 +12,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "products",
-    indices = [Index("shopId"), Index("categoryId"), Index("subCategoryId")],
+    indices = [Index("shopId"), Index("categoryId"), Index("subCategoryId"), Index("barcode")],
 )
 data class Product(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val shopId: Long,
     val name: String,
+    val barcode: String? = null,    // unique per shop; auto-generated when absent (Phase 28)
     val sellPrice: Long = 0,        // paisa
     val buyPrice: Long = 0,         // paisa
     val stock: Double = 0.0,

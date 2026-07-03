@@ -18,10 +18,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -30,7 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -54,10 +54,9 @@ import com.minipos.core.ui.AppTextField
 import com.minipos.core.ui.AppTopBar
 import com.minipos.core.ui.ConfirmDialog
 import com.minipos.core.ui.PrimaryButton
-import com.minipos.core.ui.QtyStepper
-import com.minipos.core.ui.SecondaryButton
 import com.minipos.core.ui.SectionHeader
 import com.minipos.core.util.ImageStorage
+import com.minipos.feature.barcode.BarcodeScannerDialog
 import com.minipos.core.util.Money
 import com.minipos.data.entity.Product
 import kotlinx.coroutines.launch
@@ -77,6 +76,7 @@ fun ProductFormScreen(
     LaunchedEffect(shopId) { vm.setShop(shopId) }
     val categories by vm.categories.collectAsStateWithLifecycle()
     val units by vm.units.collectAsStateWithLifecycle()
+    val defaultUnit by vm.defaultUnit.collectAsStateWithLifecycle()
 
     var loaded by remember { mutableStateOf<Product?>(null) }
     var name by remember { mutableStateOf("") }
@@ -104,11 +104,10 @@ fun ProductFormScreen(
     var loading by remember { mutableStateOf(editingId != null) }
     var saving by remember { mutableStateOf(false) }
 
-    // Stock adjustment (edit mode only) — inventory correction, never a sale.
-    var adjustAmount by remember { mutableIntStateOf(1) }
-    var adjustIsAdd by remember { mutableStateOf(true) }
-    var adjustNote by remember { mutableStateOf("") }
-    var adjustError by remember { mutableStateOf<String?>(null) }
+    // Barcode (Phase 28): blank = auto-generate; scanning fills the field.
+    var barcode by remember { mutableStateOf("") }
+    var barcodeError by remember { mutableStateOf<String?>(null) }
+    var showBarcodeScanner by remember { mutableStateOf(false) }
 
     // Delete (edit mode only) — allowed only when stock is exactly 0.
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -125,6 +124,7 @@ fun ProductFormScreen(
                 subCategoryId = p.subCategoryId
                 unitName = p.unit
                 existingPhoto = p.photoPath
+                barcode = p.barcode.orEmpty()
                 lowStockAlert = p.lowStockAlertEnabled
                 lowStockThreshold = p.lowStockThreshold?.asInput() ?: ""
                 vatEnabled = p.vatEnabled
@@ -137,6 +137,14 @@ fun ProductFormScreen(
                 discountPercent = p.discountPercent.asInput()
             }
             loading = false
+        }
+    }
+
+    // Phase 31: pre-select the shop's default unit on NEW products (only while nothing is chosen
+    // and the unit actually exists); the user can still pick any other unit or none.
+    LaunchedEffect(defaultUnit, units) {
+        if (editingId == null && unitName == null && units.any { it.name == defaultUnit }) {
+            unitName = defaultUnit
         }
     }
 
@@ -200,6 +208,20 @@ fun ProductFormScreen(
                 AppTextField(openingStock, { openingStock = it }, "Opening stock", keyboardType = KeyboardType.Number)
             }
 
+            // Barcode with camera-scan fill (Phase 28).
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) {
+                    AppTextField(
+                        barcode, { barcode = it; barcodeError = null },
+                        "Barcode (leave empty to auto-generate)",
+                        errorText = barcodeError,
+                    )
+                }
+                IconButton(onClick = { showBarcodeScanner = true }) {
+                    Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan barcode", tint = BrandYellow)
+                }
+            }
+
             AppDropdown(
                 label = "Category",
                 options = topCategories,
@@ -251,49 +273,17 @@ fun ProductFormScreen(
                 AppTextField(discountPercent, { discountPercent = it }, "Discount %", keyboardType = KeyboardType.Number)
             }
 
-            if (editingId != null) {
-                SectionHeader("Stock adjustment")
-                Text(
-                    "Current stock: ${loaded?.stock?.asInput() ?: "-"}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextMuted,
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(adjustIsAdd, { adjustIsAdd = true }, label = { Text("Add stock") })
-                    FilterChip(!adjustIsAdd, { adjustIsAdd = false }, label = { Text("Remove stock") })
+            loaded?.let { current ->
+                if (editingId != null) {
+                    // Shared with Product Details (Phase 8) — same UI, same rules, same logic.
+                    StockAdjustmentSection(
+                        currentStock = current.stock,
+                        onApply = { delta, adjNote ->
+                            vm.applyStockChange(current, delta, adjNote)
+                            loaded = current.copy(stock = current.stock + delta)
+                        },
+                    )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Quantity", modifier = Modifier.weight(1f))
-                    QtyStepper(value = adjustAmount, onValueChange = { adjustAmount = it }, min = 1)
-                }
-                AppTextField(adjustNote, { adjustNote = it }, "Reason (optional)")
-                SecondaryButton(
-                    text = if (adjustIsAdd) "Add $adjustAmount to stock" else "Remove $adjustAmount from stock",
-                    onClick = {
-                        val current = loaded
-                        if (current != null && adjustAmount > 0) {
-                            if (!adjustIsAdd && adjustAmount > current.stock) {
-                                // Never let an adjustment drive stock negative.
-                                adjustError = "Cannot remove more than current stock (${current.stock.asInput()})."
-                            } else {
-                                val delta = if (adjustIsAdd) adjustAmount.toDouble() else -adjustAmount.toDouble()
-                                vm.applyStockChange(current, delta, adjustNote.trim().ifBlank { null })
-                                loaded = current.copy(stock = current.stock + delta)
-                                adjustAmount = 1
-                                adjustNote = ""
-                                adjustError = null
-                            }
-                        }
-                    },
-                )
-                adjustError?.let {
-                    Text(it, style = MaterialTheme.typography.bodySmall, color = ExpenseRed)
-                }
-                Text(
-                    "Stock adjustments correct inventory only — they are not recorded as a sale.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = TextMuted,
-                )
             }
 
             PrimaryButton(
@@ -327,9 +317,15 @@ fun ProductFormScreen(
                             wholesalePrice = if (wholesaleEnabled) Money.parseToPaisa(wholesalePrice) else null,
                             discountEnabled = discountEnabled,
                             discountPercent = discountPercent.toDoubleOrNull() ?: 0.0,
+                            barcode = barcode.trim().ifBlank { null },
                         )
-                        vm.save(product, photoUri)
-                        onClose()
+                        val error = vm.save(product, photoUri)
+                        if (error != null) {
+                            barcodeError = error
+                            saving = false
+                        } else {
+                            onClose()
+                        }
                     }
                 },
             )
@@ -355,6 +351,19 @@ fun ProductFormScreen(
                 }
             }
         }
+    }
+
+    if (showBarcodeScanner) {
+        BarcodeScannerDialog(
+            title = "Scan barcode",
+            feedback = null,
+            onScanned = { code ->
+                barcode = code
+                barcodeError = null
+                showBarcodeScanner = false
+            },
+            onDismiss = { showBarcodeScanner = false },
+        )
     }
 
     if (showDeleteConfirm) {

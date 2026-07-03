@@ -11,7 +11,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -33,6 +36,9 @@ fun ReportScreen(
     onOpenStockReport: () -> Unit,
     onOpenBusinessReport: () -> Unit,
     onOpenDailyReport: () -> Unit,
+    onOpenCashReport: () -> Unit,
+    onOpenBuyReport: () -> Unit,
+    onOpenCategoryReport: () -> Unit,
 ) {
     Scaffold(
         containerColor = AppBackground,
@@ -59,6 +65,24 @@ fun ReportScreen(
                 title = "Business Report",
                 subtitle = "Money in/out, net balance & profit",
                 onClick = onOpenBusinessReport,
+            )
+            ReportEntry(
+                icon = Icons.Filled.Payments,
+                title = "Cash Management Report",
+                subtitle = "Cash In / Out by day, month or custom range",
+                onClick = onOpenCashReport,
+            )
+            ReportEntry(
+                icon = Icons.Filled.ShoppingBag,
+                title = "Buy Report",
+                subtitle = "All purchases (Cash & Due) by day, month or custom range",
+                onClick = onOpenBuyReport,
+            )
+            ReportEntry(
+                icon = Icons.Filled.Category,
+                title = "Category Report",
+                subtitle = "Buy/sell quantity, amounts & profit by category",
+                onClick = onOpenCategoryReport,
             )
         }
     }

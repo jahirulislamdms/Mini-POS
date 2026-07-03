@@ -157,9 +157,10 @@ fun PartyDetailScreen(
             choiceALabel = "Received (in)",
             choiceBLabel = "Given (out)",
             defaultA = net >= 0,
-            onConfirm = { amount, isA ->
-                vm.recordPayment(if (isA) PaymentDirection.RECEIVED else PaymentDirection.GIVEN, amount)
-                showPayment = false
+            onConfirm = { amount, isA, onError ->
+                vm.recordPayment(if (isA) PaymentDirection.RECEIVED else PaymentDirection.GIVEN, amount) { ok, err ->
+                    if (ok) showPayment = false else if (err != null) onError(err)
+                }
             },
             onDismiss = { showPayment = false },
         )
@@ -170,7 +171,7 @@ fun PartyDetailScreen(
             choiceALabel = "They'll pay you",
             choiceBLabel = "You'll pay them",
             defaultA = isCustomer,
-            onConfirm = { amount, isA ->
+            onConfirm = { amount, isA, _ ->
                 vm.addDue(if (isA) DueDirection.RECEIVABLE else DueDirection.PAYABLE, amount)
                 showDue = false
             },
@@ -209,7 +210,7 @@ private fun AmountChoiceDialog(
     choiceALabel: String,
     choiceBLabel: String,
     defaultA: Boolean,
-    onConfirm: (amount: Long, isA: Boolean) -> Unit,
+    onConfirm: (amount: Long, isA: Boolean, onError: (String) -> Unit) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var amount by remember { mutableStateOf("") }
@@ -238,7 +239,7 @@ private fun AmountChoiceDialog(
                     error = "Enter a valid amount"
                     return@TextButton
                 }
-                onConfirm(paisa, isA)
+                onConfirm(paisa, isA) { msg -> error = msg }
             }) { Text("Save") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Cancel") } },

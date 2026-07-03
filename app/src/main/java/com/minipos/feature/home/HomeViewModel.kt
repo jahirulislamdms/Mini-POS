@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 enum class HomePeriod { DAY, MONTH }
@@ -30,10 +31,9 @@ data class HomeStats(
     val duesReceive: Long = 0,
     val duesGive: Long = 0,
     val productCount: Int = 0,
+    val totalUnits: Double = 0.0,
+    val stockValue: Long = 0,
 )
-
-/** A recent sale or purchase for the activity feed. */
-data class ActivityItem(val isSale: Boolean, val id: Long, val amount: Long, val createdAt: Long)
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel : ViewModel() {
@@ -64,28 +64,30 @@ class HomeViewModel : ViewModel() {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
     private val productCount = shopIdState.filterNotNull().flatMapLatest { productRepo.observeCount(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+    // Phase 11: total units in stock — same Σ-stock calculation as the Products page header.
+    private val totalUnits = shopIdState.filterNotNull().flatMapLatest { productRepo.observeByShop(it) }
+        .map { list -> list.sumOf { it.stock } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0.0)
+    // Phase 16: total stock value — same calculation as the Products page (Σ stock × buyPrice).
+    private val stockValue = shopIdState.filterNotNull().flatMapLatest { productRepo.observeStockValue(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
     private val cashTransactions = shopIdState.filterNotNull().flatMapLatest { cashRepo.observeByShop(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val stats: StateFlow<HomeStats> = combine(
         combine(sales, purchases, expenses) { s, p, e -> Triple(s, p, e) },
-        combine(dues, payments, productCount) { d, pay, count -> Triple(d, pay, count) },
-        periodState,
+        combine(dues, payments) { d, pay -> d to pay },
+        combine(productCount, totalUnits, stockValue) { count, units, value -> Triple(count, units, value) },
         cashTransactions,
-    ) { a, b, per, cash ->
+        periodState,
+    ) { a, duesPay, product, cash, per ->
         computeStats(
             sales = a.first, purchases = a.second, expenses = a.third,
-            dues = b.first, payments = b.second, productCount = b.third,
+            dues = duesPay.first, payments = duesPay.second,
+            productCount = product.first, totalUnits = product.second, stockValue = product.third,
             cashTransactions = cash, period = per,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeStats())
-
-    val recent: StateFlow<List<ActivityItem>> = combine(sales, purchases) { s, p ->
-        (s.map { ActivityItem(true, it.id, it.total, it.createdAt) } +
-            p.map { ActivityItem(false, it.id, it.total, it.createdAt) })
-            .sortedByDescending { it.createdAt }
-            .take(10)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private fun computeStats(
         sales: List<Sale>,
@@ -94,6 +96,8 @@ class HomeViewModel : ViewModel() {
         dues: List<com.minipos.data.entity.Due>,
         payments: List<com.minipos.data.entity.DuePayment>,
         productCount: Int,
+        totalUnits: Double,
+        stockValue: Long,
         cashTransactions: List<CashTransaction>,
         period: HomePeriod,
     ): HomeStats {
@@ -108,8 +112,10 @@ class HomeViewModel : ViewModel() {
         val given = payments.filter { it.direction == PaymentDirection.GIVEN }.sumOf { it.amount }
         val cashIn = cashTransactions.filter { it.type == CashType.CASH_IN }.sumOf { it.amount }
         val cashOut = cashTransactions.filter { it.type == CashType.CASH_OUT }.sumOf { it.amount }
+        // Phase 17: Current Balance = petty cash. Buying (cash buys + supplier due payments) no
+        // longer reduces it. Must stay in sync with BalanceRepository.observeBalance.
         val balance = (sales.sumOf { it.paidAmount } + received + cashIn) -
-            (purchases.sumOf { it.paidAmount } + given + expenses.sumOf { it.amount } + cashOut)
+            (expenses.sumOf { it.amount } + cashOut)
 
         return HomeStats(
             balance = balance,
@@ -118,6 +124,8 @@ class HomeViewModel : ViewModel() {
             duesReceive = dues.filter { it.direction == DueDirection.RECEIVABLE }.sumOf { it.amount } - received,
             duesGive = dues.filter { it.direction == DueDirection.PAYABLE }.sumOf { it.amount } - given,
             productCount = productCount,
+            totalUnits = totalUnits,
+            stockValue = stockValue,
         )
     }
 }

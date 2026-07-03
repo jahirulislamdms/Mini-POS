@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.minipos.ServiceLocator
 import com.minipos.core.util.DateFilter
 import com.minipos.core.util.DateUtil
+import com.minipos.core.util.Money
 import com.minipos.data.entity.Expense
 import com.minipos.data.entity.ExpenseCategory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -25,6 +26,7 @@ data class ExpenseRow(val expense: Expense, val categoryName: String?)
 class ExpenseViewModel : ViewModel() {
 
     private val repo = ServiceLocator.expenseRepository
+    private val balanceRepo = ServiceLocator.balanceRepository
 
     private val shopIdState = MutableStateFlow<Long?>(null)
     private val filterState = MutableStateFlow(DateFilter.MONTH)
@@ -63,10 +65,21 @@ class ExpenseViewModel : ViewModel() {
         .map { list -> list.sumOf { it.amount } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
-    fun add(amount: Long, categoryId: Long?, note: String?, date: Long) = viewModelScope.launch {
-        val shopId = shopIdState.value ?: return@launch
-        repo.add(shopId, categoryId, amount, note, date)
-    }
+    /**
+     * Add an expense — but never let it exceed the Current Balance (Phase 17: balance never goes
+     * negative). [onResult] reports success or a message so the dialog can stay open on failure.
+     */
+    fun add(amount: Long, categoryId: Long?, note: String?, date: Long, onResult: (Boolean, String?) -> Unit) =
+        viewModelScope.launch {
+            val shopId = shopIdState.value ?: return@launch onResult(false, "No shop selected.")
+            val balance = balanceRepo.getBalance(shopId)
+            if (amount > balance) {
+                onResult(false, "Not enough balance. Current balance is ${Money.format(balance)}.")
+                return@launch
+            }
+            repo.add(shopId, categoryId, amount, note, date)
+            onResult(true, null)
+        }
 
     fun update(expense: Expense) = viewModelScope.launch { repo.update(expense) }
     fun delete(expense: Expense) = viewModelScope.launch { repo.delete(expense) }

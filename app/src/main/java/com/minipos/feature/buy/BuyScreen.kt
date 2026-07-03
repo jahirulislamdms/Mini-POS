@@ -14,7 +14,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -24,6 +26,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,11 +36,13 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.minipos.core.print.ReceiptPrinter
 import com.minipos.core.theme.AppBackground
 import com.minipos.core.theme.TextMuted
 import com.minipos.core.ui.AppCard
@@ -48,6 +53,8 @@ import com.minipos.core.ui.PrimaryButton
 import com.minipos.core.ui.QtyStepper
 import com.minipos.core.ui.SectionHeader
 import com.minipos.core.util.Money
+import com.minipos.core.util.SearchUtil
+import com.minipos.feature.barcode.BarcodeScannerDialog
 import com.minipos.data.entity.PartyType
 import kotlinx.coroutines.launch
 
@@ -69,6 +76,10 @@ fun BuyScreen(
 
     var search by remember { mutableStateOf("") }
     var showCheckout by remember { mutableStateOf(false) }
+    var showScanner by remember { mutableStateOf(false) }     // Phase 28: scan-to-buy
+    var scanFeedback by remember { mutableStateOf<String?>(null) }
+    var askPrintPurchaseId by remember { mutableStateOf<Long?>(null) } // Phase 29: print receipt?
+    val context = LocalContext.current
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -107,6 +118,11 @@ fun BuyScreen(
                 onValueChange = { search = it },
                 label = { Text("Search products") },
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                trailingIcon = {
+                    IconButton(onClick = { scanFeedback = null; showScanner = true }) {
+                        Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan barcode")
+                    }
+                },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth().padding(16.dp),
             )
@@ -116,7 +132,8 @@ fun BuyScreen(
                     EmptyState(message = "No products yet. Add products first to record a purchase.")
                 }
             } else {
-                val filtered = products.filter { search.isBlank() || it.name.contains(search, ignoreCase = true) }
+                // Smart search (Phase 22): case/space-insensitive partial matching, ranked.
+                val filtered = SearchUtil.filter(products, search) { listOf(it.name) }
                 LazyColumn(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     contentPadding = PaddingValues(16.dp),
@@ -153,6 +170,16 @@ fun BuyScreen(
         }
     }
 
+    // Phase 28: continuous scan-to-buy — each scanned product is added to the cart.
+    if (showScanner) {
+        BarcodeScannerDialog(
+            title = "Scan to buy",
+            feedback = scanFeedback,
+            onScanned = { code -> vm.addByBarcode(code) { msg -> scanFeedback = msg } },
+            onDismiss = { showScanner = false },
+        )
+    }
+
     if (showCheckout && total > 0) {
         CheckoutDialog(
             total = total,
@@ -162,12 +189,31 @@ fun BuyScreen(
             confirmText = "Confirm purchase",
             onCreateParty = { name, phone -> vm.createSupplier(name, phone) },
             onConfirm = { paymentType, partyId, paid, note ->
-                vm.confirmPurchase(paymentType, partyId, paid, note) {
+                vm.confirmPurchase(paymentType, partyId, paid, note) { purchaseId ->
                     showCheckout = false
+                    askPrintPurchaseId = purchaseId
                     scope.launch { snackbar.showSnackbar("Purchase recorded") }
                 }
             },
             onDismiss = { showCheckout = false },
+        )
+    }
+
+    // Phase 29: offer to print the receipt after every completed purchase.
+    askPrintPurchaseId?.let { purchaseId ->
+        AlertDialog(
+            onDismissRequest = { askPrintPurchaseId = null },
+            title = { Text("Print receipt?") },
+            text = { Text("Do you want to print the receipt for this purchase?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    askPrintPurchaseId = null
+                    scope.launch { ReceiptPrinter.printPurchase(context, purchaseId) }
+                }) { Text("Yes") }
+            },
+            dismissButton = {
+                TextButton(onClick = { askPrintPurchaseId = null }) { Text("No") }
+            },
         )
     }
 }

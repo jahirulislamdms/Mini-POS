@@ -3,6 +3,7 @@ package com.minipos.feature.cash
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.minipos.ServiceLocator
+import com.minipos.core.util.Money
 import com.minipos.data.entity.CashTransaction
 import com.minipos.data.entity.CashType
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,6 +22,7 @@ data class CashTotals(val cashIn: Long, val cashOut: Long, val net: Long)
 class CashViewModel : ViewModel() {
 
     private val repo = ServiceLocator.cashRepository
+    private val balanceRepo = ServiceLocator.balanceRepository
     private val shopIdState = MutableStateFlow<Long?>(null)
 
     fun setShop(shopId: Long) { shopIdState.value = shopId }
@@ -38,10 +40,23 @@ class CashViewModel : ViewModel() {
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CashTotals(0, 0, 0))
 
-    fun add(amount: Long, type: CashType, note: String?) = viewModelScope.launch {
-        val shopId = shopIdState.value ?: return@launch
-        repo.add(shopId, amount, type, note)
-    }
+    /**
+     * Add a Cash In / Cash Out. Cash Out can never exceed the Current Balance (Phase 17: balance
+     * never goes negative). [onResult] reports success or a message so the dialog can stay open.
+     */
+    fun add(amount: Long, type: CashType, note: String?, onResult: (Boolean, String?) -> Unit) =
+        viewModelScope.launch {
+            val shopId = shopIdState.value ?: return@launch onResult(false, "No shop selected.")
+            if (type == CashType.CASH_OUT) {
+                val balance = balanceRepo.getBalance(shopId)
+                if (amount > balance) {
+                    onResult(false, "Not enough balance. Current balance is ${Money.format(balance)}.")
+                    return@launch
+                }
+            }
+            repo.add(shopId, amount, type, note)
+            onResult(true, null)
+        }
 
     fun delete(txn: CashTransaction) = viewModelScope.launch { repo.delete(txn) }
 }

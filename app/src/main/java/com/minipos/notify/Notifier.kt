@@ -2,10 +2,13 @@ package com.minipos.notify
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import com.minipos.MainActivity
 import com.minipos.R
 
 /** Local notifications for low-stock & due reminders (P12.2). Offline; no network. */
@@ -34,7 +37,29 @@ object Notifier {
             .setContentText(text)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+            .setContentIntent(openAppIntent(context, id))
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
+    }
+
+    /**
+     * Tap action (Phase 26): open MINI POS exactly like tapping its launcher icon — cold-launch
+     * when closed, bring the existing task to the foreground when backgrounded/open (with
+     * `singleTask` on MainActivity, never a second instance). Immutable PendingIntent per
+     * Android 12+ requirements.
+     */
+    private fun openAppIntent(context: Context, requestCode: Int): PendingIntent {
+        val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
+            ?: Intent(context, MainActivity::class.java).apply {
+                action = Intent.ACTION_MAIN
+                addCategory(Intent.CATEGORY_LAUNCHER)
+            }
+        launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        return PendingIntent.getActivity(
+            context,
+            requestCode,
+            launch,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
     }
 }

@@ -24,6 +24,14 @@ class MiniPosApp : Application() {
         Notifier.ensureChannel(this)
         scheduleReminders()
         scheduleBackupReminder()
+        backfillBarcodes()
+    }
+
+    /** Phase 28: every product must have a unique barcode — backfill any that are missing. */
+    private fun backfillBarcodes() {
+        CoroutineScope(Dispatchers.Default).launch {
+            runCatching { ServiceLocator.productRepository.backfillMissingBarcodes() }
+        }
     }
 
     private fun scheduleReminders() {

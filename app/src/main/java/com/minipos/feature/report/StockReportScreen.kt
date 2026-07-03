@@ -20,6 +20,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.minipos.core.print.PdfLine
+import com.minipos.core.print.ReportPdfAction
 import com.minipos.core.theme.AppBackground
 import com.minipos.core.theme.ExpenseRed
 import com.minipos.core.theme.IncomeGreen
@@ -49,7 +51,48 @@ fun StockReportScreen(
 
     Scaffold(
         containerColor = AppBackground,
-        topBar = { AppTopBar(title = "Stock Report", onBack = onBack) },
+        topBar = {
+            AppTopBar(
+                title = "Stock Report",
+                onBack = onBack,
+                actions = {
+                    ReportPdfAction("stock-report.pdf", shopId) {
+                        "Stock Report" to buildList {
+                            add(PdfLine.KeyValue("Total units", totalUnits.asQty()))
+                            add(PdfLine.KeyValue("Stock value", Money.format(totalValue)))
+                            add(PdfLine.Header("Products"))
+                            add(PdfLine.Cols(listOf("Product", "Qty", "Buy price", "Value"), bold = true))
+                            lines.forEach {
+                                add(
+                                    PdfLine.Cols(
+                                        listOf(
+                                            it.product.name,
+                                            it.product.stock.asQty(),
+                                            Money.format(it.product.buyPrice),
+                                            Money.format(it.value),
+                                        ),
+                                    ),
+                                )
+                            }
+                            add(PdfLine.Header("Stock movements"))
+                            add(PdfLine.Cols(listOf("Product", "Type", "Date", "Change"), bold = true))
+                            movements.forEach { row ->
+                                add(
+                                    PdfLine.Cols(
+                                        listOf(
+                                            row.productName ?: "(deleted product)",
+                                            row.movement.type.name.lowercase(),
+                                            DateUtil.formatDateTime(row.movement.createdAt),
+                                            row.movement.change.asQty(),
+                                        ),
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                },
+            )
+        },
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier.fillMaxSize().padding(innerPadding),

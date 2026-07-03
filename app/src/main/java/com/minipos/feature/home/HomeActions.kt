@@ -5,7 +5,7 @@ data class HomeActions(
     val onOpenShops: () -> Unit,
     val onSell: () -> Unit,
     val onBuy: () -> Unit,
-    val onOpenProducts: () -> Unit,
+    val onOpenCashDrawer: () -> Unit,
     val onOpenSalesLedger: () -> Unit,
     val onOpenPurchaseLedger: () -> Unit,
     val onOpenExpenses: () -> Unit,

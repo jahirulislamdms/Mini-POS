@@ -17,11 +17,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -29,6 +32,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,6 +57,7 @@ import com.minipos.core.ui.EmptyState
 import com.minipos.core.ui.StatCard
 import com.minipos.core.util.ImageStorage
 import com.minipos.core.util.Money
+import com.minipos.feature.barcode.BarcodeScannerDialog
 import com.minipos.data.entity.Product
 
 /** Product/Inventory list: search + category filter + empty state (P4.3). */
@@ -60,6 +67,7 @@ fun ProductListScreen(
     onAddProduct: () -> Unit,
     onProductDetail: (Long) -> Unit,
     onUpdateStock: (Long) -> Unit,
+    onProductHistory: (Long) -> Unit,
     onBack: (() -> Unit)? = null,
 ) {
     val vm: ProductViewModel = viewModel()
@@ -68,12 +76,17 @@ fun ProductListScreen(
     val products by vm.products.collectAsStateWithLifecycle()
     val categories by vm.categories.collectAsStateWithLifecycle()
     val query by vm.query.collectAsStateWithLifecycle()
-    val selectedCategory by vm.categoryFilter.collectAsStateWithLifecycle()
+    val selectedCategoryIds by vm.selectedCategoryIds.collectAsStateWithLifecycle()
+    val selectedSubCategoryIds by vm.selectedSubCategoryIds.collectAsStateWithLifecycle()
     val lowStockDefault by vm.lowStockDefault.collectAsStateWithLifecycle()
     val totalUnits by vm.totalUnits.collectAsStateWithLifecycle()
     val totalStockValue by vm.totalStockValue.collectAsStateWithLifecycle()
 
     val topCategories = categories.filter { it.parentId == null }
+    val filtersActive = selectedCategoryIds.isNotEmpty() || selectedSubCategoryIds.isNotEmpty()
+    var showFilter by remember { mutableStateOf(false) }
+    var showScanner by remember { mutableStateOf(false) }     // Phase 28: scan to find product
+    var scanFeedback by remember { mutableStateOf<String?>(null) }
 
     Scaffold(
         containerColor = AppBackground,
@@ -94,14 +107,32 @@ fun ProductListScreen(
                 StatCard("Stock value", totalStockValue, OnSurface, Modifier.weight(1f))
             }
 
-            OutlinedTextField(
-                value = query,
-                onValueChange = { vm.setQuery(it) },
-                label = { Text("Search products") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
+            // Search + Filter (Phase 24: the filter button opens the Category/Subcategory dialog).
+            Row(
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-            )
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { vm.setQuery(it) },
+                    label = { Text("Search products") },
+                    leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                    trailingIcon = {
+                        IconButton(onClick = { scanFeedback = null; showScanner = true }) {
+                            Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan barcode")
+                        }
+                    },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                )
+                IconButton(onClick = { showFilter = true }) {
+                    Icon(
+                        Icons.Filled.FilterList,
+                        contentDescription = "Filter",
+                        tint = if (filtersActive) BrandYellow else TextMuted,
+                    )
+                }
+            }
 
             if (topCategories.isNotEmpty()) {
                 Row(
@@ -112,14 +143,14 @@ fun ProductListScreen(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     FilterChip(
-                        selected = selectedCategory == null,
-                        onClick = { vm.setCategoryFilter(null) },
+                        selected = !filtersActive,
+                        onClick = { vm.clearFilters() },
                         label = { Text("All") },
                     )
                     topCategories.forEach { cat ->
                         FilterChip(
-                            selected = selectedCategory == cat.id,
-                            onClick = { vm.setCategoryFilter(cat.id) },
+                            selected = cat.id in selectedCategoryIds,
+                            onClick = { vm.toggleCategory(cat.id) },
                             label = { Text(cat.name) },
                         )
                     }
@@ -129,7 +160,7 @@ fun ProductListScreen(
             if (products.isEmpty()) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     EmptyState(
-                        message = if (query.isBlank() && selectedCategory == null) {
+                        message = if (query.isBlank() && !filtersActive) {
                             "No products yet. Tap + to add your first one."
                         } else {
                             "No products match your search."
@@ -148,12 +179,43 @@ fun ProductListScreen(
                             product = product,
                             lowStockDefault = lowStockDefault,
                             onClick = { onProductDetail(product.id) },
-                            onUpdateStock = { onUpdateStock(product.id) },
+                            onHistory = { onProductHistory(product.id) },
                         )
                     }
                 }
             }
         }
+    }
+
+    // Phase 28: scan a barcode to find and open the product.
+    if (showScanner) {
+        BarcodeScannerDialog(
+            title = "Scan to find product",
+            feedback = scanFeedback,
+            onScanned = { code ->
+                vm.findByBarcode(code) { product ->
+                    if (product != null) {
+                        showScanner = false
+                        onProductDetail(product.id)
+                    } else {
+                        scanFeedback = "No product found for this barcode"
+                    }
+                }
+            },
+            onDismiss = { showScanner = false },
+        )
+    }
+
+    if (showFilter) {
+        ProductFilterDialog(
+            categories = categories,
+            selectedCategoryIds = selectedCategoryIds,
+            selectedSubCategoryIds = selectedSubCategoryIds,
+            onToggleCategory = vm::toggleCategory,
+            onToggleSubCategory = vm::toggleSubCategory,
+            onClear = vm::clearFilters,
+            onDismiss = { showFilter = false },
+        )
     }
 }
 
@@ -162,7 +224,7 @@ private fun ProductRow(
     product: Product,
     lowStockDefault: Double,
     onClick: () -> Unit,
-    onUpdateStock: () -> Unit,
+    onHistory: () -> Unit,
 ) {
     val context = LocalContext.current
     val isLow = product.lowStockAlertEnabled &&
@@ -204,10 +266,10 @@ private fun ProductRow(
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "Update",
+                    text = "History",
                     style = MaterialTheme.typography.bodySmall,
                     color = OnYellow,
-                    modifier = Modifier.clickable(onClick = onUpdateStock),
+                    modifier = Modifier.clickable(onClick = onHistory),
                 )
             }
         }

@@ -3,6 +3,7 @@ package com.minipos.feature.due
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.minipos.ServiceLocator
+import com.minipos.core.util.Money
 import com.minipos.data.entity.Due
 import com.minipos.data.entity.DueDirection
 import com.minipos.data.entity.DuePayment
@@ -61,10 +62,29 @@ class PartyDetailViewModel : ViewModel() {
             p.sumOf { if (it.direction == PaymentDirection.GIVEN) it.amount else -it.amount }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 
-    fun recordPayment(direction: PaymentDirection, amount: Long) = viewModelScope.launch {
-        val shopId = shopIdState.value ?: return@launch
-        val partyId = partyIdState.value ?: return@launch
-        repo.recordPayment(shopId, partyId, amount, direction)
+    /**
+     * Record a due payment — Phase 20: it can never exceed the party's current outstanding due,
+     * so a customer's / supplier's due balance never goes negative. [onResult] lets the dialog
+     * stay open and show a message on failure.
+     */
+    fun recordPayment(direction: PaymentDirection, amount: Long, onResult: (Boolean, String?) -> Unit) {
+        val currentNet = net.value
+        // Outstanding in the payment's direction (received reduces receivable; given reduces payable).
+        val outstanding = if (direction == PaymentDirection.RECEIVED) {
+            currentNet.coerceAtLeast(0)
+        } else {
+            (-currentNet).coerceAtLeast(0)
+        }
+        if (amount > outstanding) {
+            onResult(false, "Amount exceeds the outstanding due (${Money.format(outstanding)}).")
+            return
+        }
+        viewModelScope.launch {
+            val shopId = shopIdState.value ?: return@launch onResult(false, "No shop selected.")
+            val partyId = partyIdState.value ?: return@launch onResult(false, "No party.")
+            repo.recordPayment(shopId, partyId, amount, direction)
+            onResult(true, null)
+        }
     }
 
     fun addDue(direction: DueDirection, amount: Long) = viewModelScope.launch {

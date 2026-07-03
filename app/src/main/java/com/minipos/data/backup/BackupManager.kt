@@ -225,6 +225,21 @@ class BackupManager(
                     ),
                 )
             }
+            // Phase 28: backups from before the barcode feature — generate a unique barcode for
+            // every restored product that lacks one (products that had one keep it unchanged).
+            data.products.forEach { prod ->
+                if (prod.barcode.isNullOrBlank()) {
+                    productMap[prod.id]?.let { newId ->
+                        var code: String
+                        do {
+                            code = "2" +
+                                ((System.currentTimeMillis() / 1000) % 1_000_000_000) +
+                                (100..999).random()
+                        } while (db.productDao().getByBarcode(newShopId, code) != null)
+                        db.productDao().setBarcode(newId, code)
+                    }
+                }
+            }
 
             val newLogo = data.shop.logoPath?.let { restoreImage(it, images, newShopId, isLogo = true) }
             if (newLogo != null) {
@@ -366,7 +381,7 @@ class BackupManager(
     }
 
     companion object {
-        const val CURRENT_SCHEMA_VERSION = 3
+        const val CURRENT_SCHEMA_VERSION = 4   // v4: products carry a barcode (Phase 28)
         const val MIN_SUPPORTED_SCHEMA_VERSION = 2
     }
 }

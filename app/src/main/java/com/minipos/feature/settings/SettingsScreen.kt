@@ -11,13 +11,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Undo
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Print
+import androidx.compose.material.icons.filled.QrCode
 import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storefront
@@ -71,6 +75,10 @@ fun SettingsScreen(
     onOpenDueLedger: () -> Unit,
     onOpenCashManagement: () -> Unit,
     onOpenBackup: () -> Unit,
+    onOpenLicense: () -> Unit,
+    onOpenActivities: () -> Unit,
+    onOpenBarcodePrint: () -> Unit,
+    onOpenPrinterSettings: () -> Unit,
 ) {
     val vm: SettingsViewModel = viewModel()
     LaunchedEffect(shopId) { vm.setShop(shopId) }
@@ -99,6 +107,8 @@ fun SettingsScreen(
             NavRow(Icons.Filled.Inventory2, "Products & inventory", "Add products, search, update stock", onOpenProducts)
             NavRow(Icons.Filled.Category, "Categories", "Custom categories & sub-categories", onOpenCategories)
             NavRow(Icons.Filled.Straighten, "Units", "Custom measurement units", onOpenUnits)
+            NavRow(Icons.Filled.QrCode, "Barcode Printing", "Generate & print barcode labels (PDF)", onOpenBarcodePrint)
+            NavRow(Icons.Filled.Print, "Printing Settings", "Customize receipts, reports & all printed documents", onOpenPrinterSettings)
 
             SectionHeader("Money")
             NavRow(Icons.Filled.Payments, "Cash Management", "Add or withdraw cash (adjusts balance)", onOpenCashManagement)
@@ -143,8 +153,19 @@ fun SettingsScreen(
                 onClick = { showTimePicker = true },
             )
 
+            SectionHeader("Activity")
+            NavRow(
+                Icons.AutoMirrored.Filled.Undo,
+                "Activities",
+                "Review & undo recent transactions (last 30 days)",
+                onOpenActivities,
+            )
+
             SectionHeader("Data")
             NavRow(Icons.Filled.Backup, "Backup & restore", "Export this shop to a .zip, or restore one", onOpenBackup)
+
+            SectionHeader("License")
+            NavRow(Icons.Filled.Key, "License Management", "Status, Device ID, expiry · renew or replace", onOpenLicense)
 
             SectionHeader("About")
             NavRow(Icons.Filled.Info, "About MINI POS", "Offline POS for small shops", onClick = { showAbout = true })

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.minipos.ServiceLocator
 import com.minipos.data.entity.Category
+import com.minipos.data.entity.MovementType
 import com.minipos.data.entity.Product
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /** Read-only product detail: live product + categories (for resolving category/sub-category names). */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -37,4 +39,19 @@ class ProductDetailViewModel : ViewModel() {
         .filterNotNull()
         .flatMapLatest { categoryRepo.observeAll(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * Manual stock adjustment (Phase 8) — same business logic as the Edit screen:
+     * delegates to the shared [ProductRepository.adjustStock] (records a StockMovement, never a
+     * sale). The [product] flow re-emits afterward, so Product Details updates the stock instantly.
+     */
+    fun applyStockChange(product: Product, delta: Double, note: String?) = viewModelScope.launch {
+        productRepo.adjustStock(
+            shopId = product.shopId,
+            productId = product.id,
+            delta = delta,
+            type = MovementType.ADJUSTMENT,
+            note = note,
+        )
+    }
 }

@@ -1,7 +1,11 @@
 package com.minipos.core.nav
 
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.ScaffoldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -32,6 +36,15 @@ fun TabShell(
     onOpenBackup: () -> Unit,
     onOpenCashManagement: () -> Unit,
     onOpenDailyReport: () -> Unit,
+    onOpenLicense: () -> Unit,
+    onOpenProductHistory: (Long) -> Unit,
+    onOpenActivities: () -> Unit,
+    onOpenCashReport: () -> Unit,
+    onOpenBuyReport: () -> Unit,
+    onOpenCategoryReport: () -> Unit,
+    onOpenCashDrawer: () -> Unit,
+    onOpenBarcodePrint: () -> Unit,
+    onOpenPrinterSettings: () -> Unit,
 ) {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -39,6 +52,9 @@ fun TabShell(
 
     Scaffold(
         containerColor = AppBackground,
+        // Phase 25: don't consume the status-bar inset here — each tab handles it, so screen
+        // chrome (Home's yellow header / the yellow AppTopBars) extends behind the status bar.
+        contentWindowInsets = ScaffoldDefaults.contentWindowInsets.exclude(WindowInsets.statusBars),
         bottomBar = {
             AppBottomBar(
                 tabs = bottomTabs,
@@ -74,6 +90,15 @@ fun TabShell(
             onOpenBackup = onOpenBackup,
             onOpenCashManagement = onOpenCashManagement,
             onOpenDailyReport = onOpenDailyReport,
+            onOpenLicense = onOpenLicense,
+            onOpenProductHistory = onOpenProductHistory,
+            onOpenActivities = onOpenActivities,
+            onOpenCashReport = onOpenCashReport,
+            onOpenBuyReport = onOpenBuyReport,
+            onOpenCategoryReport = onOpenCategoryReport,
+            onOpenCashDrawer = onOpenCashDrawer,
+            onOpenBarcodePrint = onOpenBarcodePrint,
+            onOpenPrinterSettings = onOpenPrinterSettings,
             modifier = Modifier.padding(innerPadding),
         )
     }

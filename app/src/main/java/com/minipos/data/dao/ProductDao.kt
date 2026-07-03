@@ -54,4 +54,14 @@ interface ProductDao {
 
     @Query("DELETE FROM products WHERE shopId = :shopId")
     suspend fun deleteForShop(shopId: Long)
+
+    // --- Barcodes (Phase 28) ---
+    @Query("SELECT * FROM products WHERE shopId = :shopId AND barcode = :barcode LIMIT 1")
+    suspend fun getByBarcode(shopId: Long, barcode: String): Product?
+
+    @Query("SELECT * FROM products WHERE barcode IS NULL OR barcode = ''")
+    suspend fun getAllWithoutBarcode(): List<Product>
+
+    @Query("UPDATE products SET barcode = :barcode WHERE id = :id")
+    suspend fun setBarcode(id: Long, barcode: String)
 }

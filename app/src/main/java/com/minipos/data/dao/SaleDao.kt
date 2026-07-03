@@ -44,6 +44,10 @@ interface SaleDao {
     )
     fun observeCashInBetween(shopId: Long, start: Long, end: Long): Flow<Long>
 
+    /** All-time cash received from sales (Phase 17 petty-cash balance). */
+    @Query("SELECT CAST(COALESCE(SUM(paidAmount), 0) AS INTEGER) FROM sales WHERE shopId = :shopId")
+    fun observeTotalPaid(shopId: Long): Flow<Long>
+
     /** Profit = Σ(lineTotal − buyPrice×qty) over sale items in range (quick lines have 0 cost). */
     @Query(
         "SELECT CAST(COALESCE(SUM(si.lineTotal - COALESCE(p.buyPrice, 0) * si.quantity), 0) AS INTEGER) " +
@@ -64,4 +68,11 @@ interface SaleDao {
 
     @Query("DELETE FROM sale_items WHERE shopId = :shopId")
     suspend fun deleteItemsForShop(shopId: Long)
+
+    // --- Undo (Phase 15) ---
+    @Query("DELETE FROM sales WHERE id = :id")
+    suspend fun deleteSaleById(id: Long)
+
+    @Query("DELETE FROM sale_items WHERE saleId = :saleId")
+    suspend fun deleteItemsBySaleId(saleId: Long)
 }

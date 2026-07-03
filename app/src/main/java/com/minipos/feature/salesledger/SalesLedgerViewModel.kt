@@ -6,6 +6,7 @@ import com.minipos.ServiceLocator
 import com.minipos.core.util.DateFilter
 import com.minipos.core.util.DateUtil
 import com.minipos.core.util.Money
+import com.minipos.core.util.SearchUtil
 import com.minipos.data.entity.Sale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -61,13 +62,10 @@ class SalesLedgerViewModel : ViewModel() {
     val rows: StateFlow<List<SaleRow>> =
         combine(salesInRange, parties, queryState) { sales, parties, q ->
             val names = parties.associateBy({ it.id }, { it.name })
-            sales.map { SaleRow(it, it.partyId?.let(names::get)) }
-                .filter { row ->
-                    q.isBlank() ||
-                        row.sale.note?.contains(q, ignoreCase = true) == true ||
-                        row.partyName?.contains(q, ignoreCase = true) == true ||
-                        Money.format(row.sale.total).contains(q)
-                }
+            // Smart search (Phase 22): case/space-insensitive partial match on note/party/amount.
+            SearchUtil.filter(sales.map { SaleRow(it, it.partyId?.let(names::get)) }, q) { row ->
+                listOf(row.sale.note, row.partyName, Money.format(row.sale.total))
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     val totals: StateFlow<LedgerTotals> = salesInRange

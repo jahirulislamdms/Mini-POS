@@ -29,6 +29,47 @@ class ProductRepository(private val db: MiniPosDatabase) {
     fun observeMovementsForProduct(shopId: Long, productId: Long): Flow<List<StockMovement>> =
         movementDao.observeByProduct(shopId, productId)
 
+    /** Product History (Phase 13): movements within a window (newest first). */
+    fun observeMovementsForProductSince(shopId: Long, productId: Long, since: Long): Flow<List<StockMovement>> =
+        movementDao.observeByProductSince(shopId, productId, since)
+
+    companion object {
+        /** Product History window — the screen shows only the last 30 days (older rows are kept). */
+        const val MOVEMENT_RETENTION_MILLIS = 30L * 24 * 60 * 60 * 1000
+    }
+
+    // --- Barcodes (Phase 28) ---
+
+    suspend fun getByBarcode(shopId: Long, barcode: String): Product? =
+        productDao.getByBarcode(shopId, barcode)
+
+    /** True when another product of the shop already uses [barcode]. */
+    suspend fun isBarcodeTaken(shopId: Long, barcode: String, excludeProductId: Long): Boolean =
+        productDao.getByBarcode(shopId, barcode)?.let { it.id != excludeProductId } == true
+
+    /** A new numeric CODE-128 barcode, guaranteed unique within the shop. */
+    suspend fun generateBarcode(shopId: Long): String {
+        while (true) {
+            val code = buildString {
+                append("2")                                            // internal-code prefix
+                append((System.currentTimeMillis() / 1000) % 1_000_000_000) // 9 digits
+                append((100..999).random())                            // 3 random digits
+            }
+            if (productDao.getByBarcode(shopId, code) == null) return code
+        }
+    }
+
+    /** [requested] trimmed, or a freshly generated unique barcode when blank. */
+    suspend fun ensureBarcode(shopId: Long, requested: String?): String =
+        requested?.trim().takeUnless { it.isNullOrEmpty() } ?: generateBarcode(shopId)
+
+    /** Backfill: give every product without a barcode (old installs / restored backups) one. */
+    suspend fun backfillMissingBarcodes() {
+        productDao.getAllWithoutBarcode().forEach { p ->
+            productDao.setBarcode(p.id, generateBarcode(p.shopId))
+        }
+    }
+
     /** Insert a product; logs an INITIAL stock movement if it starts with stock. */
     suspend fun add(product: Product): Long = db.withTransaction {
         val now = System.currentTimeMillis()

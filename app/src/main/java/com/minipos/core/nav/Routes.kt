@@ -19,6 +19,7 @@ object Routes {
     const val PRODUCTS = "products"
     const val PRODUCT_FORM = "product_form"
     const val PRODUCT_DETAIL = "product_detail"
+    const val PRODUCT_HISTORY = "product_history"
     const val UPDATE_STOCK = "update_stock"
     const val CATEGORIES = "categories"
     const val UNITS = "units"
@@ -42,10 +43,21 @@ object Routes {
     const val STOCK_REPORT = "stock_report"
     const val BUSINESS_REPORT = "business_report"
     const val DAILY_REPORT = "daily_report"
+    const val CASH_REPORT = "cash_report"
+    const val BUY_REPORT = "buy_report"
+    const val CATEGORY_REPORT = "category_report"
 
     const val CASH_MANAGEMENT = "cash_management"
+    const val CASH_DRAWER = "cash_drawer"
 
     const val BACKUP = "backup"
+
+    const val LICENSE_MANAGEMENT = "license_management"
+
+    const val ACTIVITIES = "activities"
+
+    const val BARCODE_PRINT = "barcode_print"
+    const val PRINTER_SETTINGS = "printer_settings"
 
     // Bottom-tab destinations (inside the shell)
     const val HOME = "home"
@@ -64,6 +76,9 @@ object Routes {
 
     /** Route to the read-only product details. */
     fun productDetail(productId: Long): String = "$PRODUCT_DETAIL/$productId"
+
+    /** Route to the read-only product movement history. */
+    fun productHistory(productId: Long): String = "$PRODUCT_HISTORY/$productId"
 
     /** Route to Sell/Buy pre-loaded with a product (Product Details quick actions). */
     fun sellForProduct(productId: Long): String = "$SELL?$ARG_PRODUCT_ID=$productId"

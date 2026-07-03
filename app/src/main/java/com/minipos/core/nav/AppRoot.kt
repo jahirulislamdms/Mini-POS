@@ -15,9 +15,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.minipos.ServiceLocator
+import com.minipos.feature.activity.ActivityScreen
 import com.minipos.feature.backup.BackupScreen
+import com.minipos.feature.barcodeprint.BarcodePrintScreen
 import com.minipos.feature.buy.BuyScreen
 import com.minipos.feature.cash.CashManagementScreen
+import com.minipos.feature.cashdrawer.CashDrawerScreen
 import com.minipos.feature.category.CategoryScreen
 import com.minipos.feature.category.UnitScreen
 import com.minipos.feature.due.DueLedgerScreen
@@ -26,15 +29,21 @@ import com.minipos.feature.expense.ExpenseCategoryScreen
 import com.minipos.feature.expense.ExpenseScreen
 import com.minipos.feature.product.ProductDetailScreen
 import com.minipos.feature.product.ProductFormScreen
+import com.minipos.feature.product.ProductHistoryScreen
 import com.minipos.feature.product.UpdateStockScreen
 import com.minipos.feature.sell.SellScreen
 import com.minipos.feature.purchaseledger.PurchaseDetailScreen
 import com.minipos.feature.report.BusinessReportScreen
+import com.minipos.feature.report.BuyReportScreen
+import com.minipos.feature.report.CashReportScreen
+import com.minipos.feature.report.CategoryReportScreen
 import com.minipos.feature.report.DailyReportScreen
 import com.minipos.feature.report.StockReportScreen
 import com.minipos.feature.purchaseledger.PurchaseLedgerScreen
 import com.minipos.feature.salesledger.SaleDetailScreen
 import com.minipos.feature.salesledger.SalesLedgerScreen
+import com.minipos.feature.license.LicenseManagementScreen
+import com.minipos.feature.settings.PrinterSettingsScreen
 import com.minipos.feature.shop.FirstRunSetupScreen
 import com.minipos.feature.shop.ShopFormScreen
 import com.minipos.feature.shop.ShopSwitcherScreen
@@ -91,7 +100,40 @@ private fun MainScaffold(shopId: Long) {
                 onOpenBackup = { navController.navigate(Routes.BACKUP) },
                 onOpenCashManagement = { navController.navigate(Routes.CASH_MANAGEMENT) },
                 onOpenDailyReport = { navController.navigate(Routes.DAILY_REPORT) },
+                onOpenLicense = { navController.navigate(Routes.LICENSE_MANAGEMENT) },
+                onOpenProductHistory = { id -> navController.navigate(Routes.productHistory(id)) },
+                onOpenActivities = { navController.navigate(Routes.ACTIVITIES) },
+                onOpenCashReport = { navController.navigate(Routes.CASH_REPORT) },
+                onOpenBuyReport = { navController.navigate(Routes.BUY_REPORT) },
+                onOpenCategoryReport = { navController.navigate(Routes.CATEGORY_REPORT) },
+                onOpenCashDrawer = { navController.navigate(Routes.CASH_DRAWER) },
+                onOpenBarcodePrint = { navController.navigate(Routes.BARCODE_PRINT) },
+                onOpenPrinterSettings = { navController.navigate(Routes.PRINTER_SETTINGS) },
             )
+        }
+        composable(Routes.PRINTER_SETTINGS) {
+            PrinterSettingsScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Routes.CASH_DRAWER) {
+            CashDrawerScreen(shopId = shopId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.BARCODE_PRINT) {
+            BarcodePrintScreen(shopId = shopId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.CASH_REPORT) {
+            CashReportScreen(shopId = shopId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.BUY_REPORT) {
+            BuyReportScreen(shopId = shopId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.CATEGORY_REPORT) {
+            CategoryReportScreen(shopId = shopId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.ACTIVITIES) {
+            ActivityScreen(shopId = shopId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.LICENSE_MANAGEMENT) {
+            LicenseManagementScreen(onBack = { navController.popBackStack() })
         }
         composable(Routes.SHOPS) {
             ShopSwitcherScreen(
@@ -160,6 +202,17 @@ private fun MainScaffold(shopId: Long) {
         ) { entry ->
             val productId = entry.arguments?.getLong(Routes.ARG_PRODUCT_ID) ?: return@composable
             UpdateStockScreen(
+                shopId = shopId,
+                productId = productId,
+                onBack = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = "${Routes.PRODUCT_HISTORY}/{${Routes.ARG_PRODUCT_ID}}",
+            arguments = listOf(navArgument(Routes.ARG_PRODUCT_ID) { type = NavType.LongType }),
+        ) { entry ->
+            val productId = entry.arguments?.getLong(Routes.ARG_PRODUCT_ID) ?: return@composable
+            ProductHistoryScreen(
                 shopId = shopId,
                 productId = productId,
                 onBack = { navController.popBackStack() },

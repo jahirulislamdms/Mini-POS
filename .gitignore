@@ -34,6 +34,12 @@ google-services.json
 secrets.properties
 *.pepk
 
+# ---- License generators (PRIVATE, owner-only — never push) ----
+license_generator/
+license_generator_gui/
+mini_pos_license_generator_android/
+*.pem
+
 # ---- Android Studio / IntelliJ ----
 .idea/
 .navigation/

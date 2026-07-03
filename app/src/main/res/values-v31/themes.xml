@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      API 31+ system splash: paint it plain yellow with NO icon, so the only logo the user sees
+      is the small centred MINI POS logo in the in-app Compose splash (Phase 14.1).
+    -->
+    <style name="Theme.MINIPOS.Splash" parent="Theme.MINIPOS">
+        <item name="android:windowBackground">@color/brand_yellow</item>
+        <item name="android:windowSplashScreenBackground">@color/brand_yellow</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_blank</item>
+    </style>
+</resources>

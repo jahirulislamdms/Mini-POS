@@ -19,6 +19,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -49,6 +50,7 @@ fun UnitScreen(
     val vm: UnitViewModel = viewModel()
     LaunchedEffect(shopId) { vm.setShop(shopId) }
     val units by vm.units.collectAsStateWithLifecycle()
+    val defaultUnit by vm.defaultUnit.collectAsStateWithLifecycle()
 
     var showAdd by remember { mutableStateOf(false) }
     var renaming by remember { mutableStateOf<MeasureUnit?>(null) }
@@ -77,6 +79,18 @@ fun UnitScreen(
                     AppCard {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(unit.name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+                            // Phase 31: the default unit is pre-selected on new products.
+                            if (unit.name == defaultUnit) {
+                                Text(
+                                    "Default",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = BrandYellow,
+                                )
+                            } else {
+                                TextButton(onClick = { vm.setDefault(unit.name) }) {
+                                    Text("Set default", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
                             IconButton(onClick = { renaming = unit }) {
                                 Icon(Icons.Filled.Edit, contentDescription = "Edit", tint = TextMuted)
                             }

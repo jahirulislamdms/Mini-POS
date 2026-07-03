@@ -26,6 +26,10 @@ interface ExpenseDao {
     @Query("SELECT CAST(COALESCE(SUM(amount), 0) AS INTEGER) FROM expenses WHERE shopId = :shopId AND createdAt BETWEEN :start AND :end")
     fun observeTotalBetween(shopId: Long, start: Long, end: Long): Flow<Long>
 
+    /** All-time expense total (Phase 17 petty-cash balance). */
+    @Query("SELECT CAST(COALESCE(SUM(amount), 0) AS INTEGER) FROM expenses WHERE shopId = :shopId")
+    fun observeTotal(shopId: Long): Flow<Long>
+
     @Query("SELECT * FROM expenses WHERE id = :id")
     suspend fun getById(id: Long): Expense?
 
@@ -34,6 +38,10 @@ interface ExpenseDao {
 
     @Query("DELETE FROM expenses WHERE shopId = :shopId")
     suspend fun deleteExpensesForShop(shopId: Long)
+
+    /** Undo (Phase 15). */
+    @Query("DELETE FROM expenses WHERE id = :id")
+    suspend fun deleteById(id: Long)
 
     // --- ExpenseCategory (custom, seeded per shop) ---
     @Insert suspend fun insertCategory(category: ExpenseCategory): Long

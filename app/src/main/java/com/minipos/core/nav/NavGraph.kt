@@ -36,6 +36,15 @@ fun TabNavGraph(
     onOpenBackup: () -> Unit,
     onOpenCashManagement: () -> Unit,
     onOpenDailyReport: () -> Unit,
+    onOpenLicense: () -> Unit,
+    onOpenProductHistory: (Long) -> Unit,
+    onOpenActivities: () -> Unit,
+    onOpenCashReport: () -> Unit,
+    onOpenBuyReport: () -> Unit,
+    onOpenCategoryReport: () -> Unit,
+    onOpenCashDrawer: () -> Unit,
+    onOpenBarcodePrint: () -> Unit,
+    onOpenPrinterSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Switch the bottom-tab selection (used by Home/Settings to open the Products tab).
@@ -60,7 +69,7 @@ fun TabNavGraph(
                     onOpenShops = onOpenShops,
                     onSell = { switchTab(Routes.SELL) },
                     onBuy = { navController.navigate(Routes.BUY) { launchSingleTop = true } },
-                    onOpenProducts = onOpenProductsTab,
+                    onOpenCashDrawer = onOpenCashDrawer,
                     onOpenSalesLedger = onOpenSalesLedger,
                     onOpenPurchaseLedger = onOpenPurchaseLedger,
                     onOpenExpenses = onOpenExpenses,
@@ -79,6 +88,7 @@ fun TabNavGraph(
                 onAddProduct = { onOpenProductForm(null) },
                 onProductDetail = onOpenProductDetail,
                 onUpdateStock = onOpenUpdateStock,
+                onProductHistory = onOpenProductHistory,
             )
         }
         composable(Routes.BUY) { BuyScreen(shopId = shopId, onOpenPurchaseLedger = onOpenPurchaseLedger) }
@@ -87,6 +97,9 @@ fun TabNavGraph(
                 onOpenStockReport = onOpenStockReport,
                 onOpenBusinessReport = onOpenBusinessReport,
                 onOpenDailyReport = onOpenDailyReport,
+                onOpenCashReport = onOpenCashReport,
+                onOpenBuyReport = onOpenBuyReport,
+                onOpenCategoryReport = onOpenCategoryReport,
             )
         }
         composable(Routes.SETTINGS) {
@@ -101,6 +114,10 @@ fun TabNavGraph(
                 onOpenDueLedger = onOpenDueLedger,
                 onOpenCashManagement = onOpenCashManagement,
                 onOpenBackup = onOpenBackup,
+                onOpenLicense = onOpenLicense,
+                onOpenActivities = onOpenActivities,
+                onOpenBarcodePrint = onOpenBarcodePrint,
+                onOpenPrinterSettings = onOpenPrinterSettings,
             )
         }
     }

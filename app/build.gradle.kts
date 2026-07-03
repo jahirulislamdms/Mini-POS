@@ -82,6 +82,10 @@ dependencies {
     // Notifications / background work
     implementation(libs.androidx.work.runtime.ktx)
 
+    // Barcodes (Phase 28): camera scanning + CODE-128 label generation — fully offline
+    implementation(libs.zxing.android.embedded)
+    implementation(libs.zxing.core)
+
     // java.time desugaring
     coreLibraryDesugaring(libs.desugar.jdk.libs)
 

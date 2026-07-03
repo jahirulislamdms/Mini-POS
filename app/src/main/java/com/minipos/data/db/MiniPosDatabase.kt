@@ -3,6 +3,8 @@ package com.minipos.data.db
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import com.minipos.data.dao.ActivityUndoDao
+import com.minipos.data.dao.CashDrawerDao
 import com.minipos.data.dao.CashTransactionDao
 import com.minipos.data.dao.CategoryDao
 import com.minipos.data.dao.ExpenseDao
@@ -13,6 +15,8 @@ import com.minipos.data.dao.SaleDao
 import com.minipos.data.dao.MeasureUnitDao
 import com.minipos.data.dao.ShopDao
 import com.minipos.data.dao.StockMovementDao
+import com.minipos.data.entity.ActivityUndo
+import com.minipos.data.entity.CashDrawerOpening
 import com.minipos.data.entity.CashTransaction
 import com.minipos.data.entity.Category
 import com.minipos.data.entity.Due
@@ -48,8 +52,10 @@ import com.minipos.data.entity.StockMovement
         DuePayment::class,
         MeasureUnit::class,
         CashTransaction::class,
+        ActivityUndo::class,
+        CashDrawerOpening::class,
     ],
-    version = 3,
+    version = 7,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -64,6 +70,8 @@ abstract class MiniPosDatabase : RoomDatabase() {
     abstract fun partyDao(): PartyDao
     abstract fun measureUnitDao(): MeasureUnitDao
     abstract fun cashTransactionDao(): CashTransactionDao
+    abstract fun activityUndoDao(): ActivityUndoDao
+    abstract fun cashDrawerDao(): CashDrawerDao
 
     companion object {
         const val DB_NAME = "minipos.db"

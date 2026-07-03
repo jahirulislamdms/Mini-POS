@@ -104,6 +104,20 @@ class SellViewModel : ViewModel() {
         productRepo.getById(productId)?.let { addToCart(it) }
     }
 
+    /** Scan-to-sell (Phase 28): find by barcode and add to the cart; [onResult] gets feedback. */
+    fun addByBarcode(code: String, onResult: (String) -> Unit) = viewModelScope.launch {
+        val shopId = shopIdState.value ?: return@launch
+        val product = productRepo.getByBarcode(shopId, code.trim())
+        when {
+            product == null -> onResult("No product found for this barcode")
+            product.stock <= 0.0 -> onResult("${product.name} is out of stock")
+            else -> {
+                addToCart(product)
+                onResult("Added: ${product.name}")
+            }
+        }
+    }
+
     suspend fun createCustomer(name: String, phone: String?): Long {
         val shopId = shopIdState.value ?: return 0L
         return partyRepo.addParty(
@@ -116,7 +130,7 @@ class SellViewModel : ViewModel() {
         partyId: Long?,
         paidAmount: Long,
         note: String?,
-        onDone: () -> Unit,
+        onDone: (saleId: Long) -> Unit,
     ) = viewModelScope.launch {
         val shopId = shopIdState.value ?: return@launch
         val lines = _cart.value.map {
@@ -130,9 +144,9 @@ class SellViewModel : ViewModel() {
             )
         }
         if (lines.isEmpty()) return@launch
-        saleRepo.commitSale(shopId, lines, 0, paymentType, partyId, paidAmount, isQuickSale = false, note = note)
+        val saleId = saleRepo.commitSale(shopId, lines, 0, paymentType, partyId, paidAmount, isQuickSale = false, note = note)
         _cart.value = emptyList()
-        onDone()
+        onDone(saleId)
     }
 
     fun confirmQuickSale(
@@ -141,7 +155,7 @@ class SellViewModel : ViewModel() {
         partyId: Long?,
         paidAmount: Long,
         note: String?,
-        onDone: () -> Unit,
+        onDone: (saleId: Long) -> Unit,
     ) = viewModelScope.launch {
         val shopId = shopIdState.value ?: return@launch
         if (amount <= 0) return@launch
@@ -153,7 +167,7 @@ class SellViewModel : ViewModel() {
             discount = 0,
             lineTotal = amount,
         )
-        saleRepo.commitSale(shopId, listOf(line), 0, paymentType, partyId, paidAmount, isQuickSale = true, note = note)
-        onDone()
+        val saleId = saleRepo.commitSale(shopId, listOf(line), 0, paymentType, partyId, paidAmount, isQuickSale = true, note = note)
+        onDone(saleId)
     }
 }

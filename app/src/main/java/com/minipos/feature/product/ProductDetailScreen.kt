@@ -131,9 +131,17 @@ fun ProductDetailScreen(
             }
 
             Text(
-                "Product details are read-only. Tap Edit to change them or adjust stock.",
+                "Product details are read-only. Tap Edit to change them.",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextMuted,
+            )
+
+            HorizontalDivider(Modifier.padding(vertical = 4.dp))
+
+            // Stock adjustment (Phase 8) — same shared section/logic as the Edit screen.
+            StockAdjustmentSection(
+                currentStock = p.stock,
+                onApply = { delta, note -> vm.applyStockChange(p, delta, note) },
             )
         }
     }

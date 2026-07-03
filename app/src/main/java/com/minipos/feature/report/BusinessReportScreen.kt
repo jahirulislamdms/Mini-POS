@@ -21,6 +21,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.minipos.core.print.PdfLine
+import com.minipos.core.print.ReportPdfAction
 import com.minipos.core.theme.AppBackground
 import com.minipos.core.theme.ExpenseRed
 import com.minipos.core.theme.IncomeGreen
@@ -50,7 +52,37 @@ fun BusinessReportScreen(
 
     Scaffold(
         containerColor = AppBackground,
-        topBar = { AppTopBar(title = "Business Report", onBack = onBack) },
+        topBar = {
+            AppTopBar(
+                title = "Business Report",
+                onBack = onBack,
+                actions = {
+                    ReportPdfAction("business-report.pdf", shopId) {
+                        val moneyIn = report.cashSale + report.dueCollected + report.otherIncome
+                        val moneyOut = report.cashPurchase + report.duePaid + report.otherExpense
+                        "Business Report" to buildList {
+                            add(PdfLine.Plain("Period: ${filter.label}"))
+                            add(PdfLine.Header("Money in"))
+                            add(PdfLine.KeyValue("Cash sale", Money.format(report.cashSale)))
+                            add(PdfLine.KeyValue("Due collected", Money.format(report.dueCollected)))
+                            add(PdfLine.KeyValue("Other income", Money.format(report.otherIncome)))
+                            add(PdfLine.KeyValue("Total in", Money.format(moneyIn)))
+                            add(PdfLine.Header("Money out"))
+                            add(PdfLine.KeyValue("Cash purchase", Money.format(report.cashPurchase)))
+                            add(PdfLine.KeyValue("Due paid", Money.format(report.duePaid)))
+                            add(PdfLine.KeyValue("Other expense", Money.format(report.otherExpense)))
+                            add(PdfLine.KeyValue("Total out", Money.format(moneyOut)))
+                            add(PdfLine.Divider)
+                            add(PdfLine.KeyValue("Net balance", Money.format(report.netBalance)))
+                            add(PdfLine.Header("Profit"))
+                            add(PdfLine.KeyValue("Cash profit", Money.format(report.profitCash)))
+                            add(PdfLine.KeyValue("Due profit", Money.format(report.profitDue)))
+                            add(PdfLine.KeyValue("Total profit", Money.format(report.profitTotal)))
+                        }
+                    }
+                },
+            )
+        },
     ) { innerPadding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(innerPadding)

@@ -2,4 +2,9 @@
 <resources>
 
     <style name="Theme.MINIPOS" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!-- Cold-start window painted yellow so the splash has no white flash before Compose draws. -->
+    <style name="Theme.MINIPOS.Splash" parent="Theme.MINIPOS">
+        <item name="android:windowBackground">@color/brand_yellow</item>
+    </style>
 </resources>

@@ -18,7 +18,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -40,6 +42,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -47,6 +50,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.minipos.core.print.ReceiptPrinter
 import com.minipos.core.theme.AppBackground
 import com.minipos.core.theme.BrandYellow
 import com.minipos.core.theme.OnYellow
@@ -61,6 +65,8 @@ import com.minipos.core.ui.PrimaryButton
 import com.minipos.core.ui.QtyStepper
 import com.minipos.core.ui.SectionHeader
 import com.minipos.core.util.Money
+import com.minipos.core.util.SearchUtil
+import com.minipos.feature.barcode.BarcodeScannerDialog
 import com.minipos.data.entity.Party
 import com.minipos.data.entity.PartyType
 import com.minipos.data.entity.PaymentType
@@ -90,6 +96,10 @@ fun SellScreen(
     var search by remember { mutableStateOf("") }
     var showCheckout by remember { mutableStateOf(false) }   // Quick Sell → payment
     var showCartSummary by remember { mutableStateOf(false) } // Products → Review sale popup
+    var showScanner by remember { mutableStateOf(false) }     // Phase 28: scan-to-sell
+    var scanFeedback by remember { mutableStateOf<String?>(null) }
+    var askPrintSaleId by remember { mutableStateOf<Long?>(null) } // Phase 29: print receipt?
+    val context = LocalContext.current
 
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -153,13 +163,17 @@ fun SellScreen(
                         onValueChange = { search = it },
                         label = { Text("Search products") },
                         leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        trailingIcon = {
+                            IconButton(onClick = { scanFeedback = null; showScanner = true }) {
+                                Icon(Icons.Filled.QrCodeScanner, contentDescription = "Scan barcode")
+                            }
+                        },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
                     )
                     // Out-of-stock products are hidden from the Sell list — you can't sell what isn't in stock.
-                    val filtered = products.filter {
-                        (search.isBlank() || it.name.contains(search, ignoreCase = true)) && it.stock > 0.0
-                    }
+                    // Smart search (Phase 22): case/space-insensitive partial matching, ranked.
+                    val filtered = SearchUtil.filter(products.filter { it.stock > 0.0 }, search) { listOf(it.name) }
                     if (products.isEmpty()) {
                         Box(Modifier.weight(1f).fillMaxWidth(), contentAlignment = Alignment.Center) {
                             EmptyState(message = "No products yet. Add products first, or use Quick Sell.")
@@ -185,6 +199,16 @@ fun SellScreen(
         }
     }
 
+    // Phase 28: continuous scan-to-sell — each scanned product is added to the cart.
+    if (showScanner) {
+        BarcodeScannerDialog(
+            title = "Scan to sell",
+            feedback = scanFeedback,
+            onScanned = { code -> vm.addByBarcode(code) { msg -> scanFeedback = msg } },
+            onDismiss = { showScanner = false },
+        )
+    }
+
     // Quick Sell → existing shared Cash/Due checkout.
     if (showCheckout && quickTotal > 0) {
         CheckoutDialog(
@@ -195,9 +219,10 @@ fun SellScreen(
             confirmText = "Confirm sale",
             onCreateParty = { name, phone -> vm.createCustomer(name, phone) },
             onConfirm = { paymentType, partyId, paid, note ->
-                vm.confirmQuickSale(quickTotal, paymentType, partyId, paid, note) {
+                vm.confirmQuickSale(quickTotal, paymentType, partyId, paid, note) { saleId ->
                     showCheckout = false
                     quickAmount = ""
+                    askPrintSaleId = saleId
                     scope.launch { snackbar.showSnackbar("Sale recorded") }
                 }
             },
@@ -214,12 +239,31 @@ fun SellScreen(
             onDiscount = { id, disc -> vm.setDiscount(id, disc) },
             onCreateCustomer = { name, phone -> vm.createCustomer(name, phone) },
             onConfirm = { paymentType, partyId, paid, note ->
-                vm.confirmCartSale(paymentType, partyId, paid, note) {
+                vm.confirmCartSale(paymentType, partyId, paid, note) { saleId ->
                     showCartSummary = false
+                    askPrintSaleId = saleId
                     scope.launch { snackbar.showSnackbar("Sale recorded") }
                 }
             },
             onDismiss = { showCartSummary = false },
+        )
+    }
+
+    // Phase 29: offer to print the receipt after every completed sale.
+    askPrintSaleId?.let { saleId ->
+        AlertDialog(
+            onDismissRequest = { askPrintSaleId = null },
+            title = { Text("Print receipt?") },
+            text = { Text("Do you want to print the receipt for this sale?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    askPrintSaleId = null
+                    scope.launch { ReceiptPrinter.printSale(context, saleId) }
+                }) { Text("Yes") }
+            },
+            dismissButton = {
+                TextButton(onClick = { askPrintSaleId = null }) { Text("No") }
+            },
         )
     }
 }

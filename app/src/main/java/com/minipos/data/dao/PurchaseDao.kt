@@ -48,4 +48,11 @@ interface PurchaseDao {
 
     @Query("DELETE FROM purchase_items WHERE shopId = :shopId")
     suspend fun deleteItemsForShop(shopId: Long)
+
+    // --- Undo (Phase 15) ---
+    @Query("DELETE FROM purchases WHERE id = :id")
+    suspend fun deletePurchaseById(id: Long)
+
+    @Query("DELETE FROM purchase_items WHERE purchaseId = :purchaseId")
+    suspend fun deleteItemsByPurchaseId(purchaseId: Long)
 }

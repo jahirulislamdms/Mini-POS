@@ -18,4 +18,5 @@ data class ShopSettings(
     val lowStockDefault: Double = 5.0,
     val lowStockNotify: Boolean = true,
     val dueNotify: Boolean = true,
+    val defaultUnit: String = "pcs",   // pre-selected unit for new products (Phase 31)
 )
