@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.produceState
@@ -38,6 +40,7 @@ import com.minipos.feature.report.BuyReportScreen
 import com.minipos.feature.report.CashReportScreen
 import com.minipos.feature.report.CategoryReportScreen
 import com.minipos.feature.report.DailyReportScreen
+import com.minipos.feature.report.SalesReportScreen
 import com.minipos.feature.report.StockReportScreen
 import com.minipos.feature.purchaseledger.PurchaseLedgerScreen
 import com.minipos.feature.salesledger.SaleDetailScreen
@@ -78,6 +81,16 @@ fun AppRoot() {
 @Composable
 private fun MainScaffold(shopId: Long) {
     val navController = rememberNavController()
+
+    // Phase 36: consume one-shot navigation requests (e.g. backup-setup notification tap).
+    val pendingRoute by PendingNav.route.collectAsState()
+    LaunchedEffect(pendingRoute) {
+        pendingRoute?.let { route ->
+            navController.navigate(route) { launchSingleTop = true }
+            PendingNav.consume()
+        }
+    }
+
     NavHost(navController = navController, startDestination = Routes.MAIN) {
         composable(Routes.MAIN) {
             TabShell(
@@ -105,6 +118,7 @@ private fun MainScaffold(shopId: Long) {
                 onOpenActivities = { navController.navigate(Routes.ACTIVITIES) },
                 onOpenCashReport = { navController.navigate(Routes.CASH_REPORT) },
                 onOpenBuyReport = { navController.navigate(Routes.BUY_REPORT) },
+                onOpenSalesReport = { navController.navigate(Routes.SALES_REPORT) },
                 onOpenCategoryReport = { navController.navigate(Routes.CATEGORY_REPORT) },
                 onOpenCashDrawer = { navController.navigate(Routes.CASH_DRAWER) },
                 onOpenBarcodePrint = { navController.navigate(Routes.BARCODE_PRINT) },
@@ -125,6 +139,9 @@ private fun MainScaffold(shopId: Long) {
         }
         composable(Routes.BUY_REPORT) {
             BuyReportScreen(shopId = shopId, onBack = { navController.popBackStack() })
+        }
+        composable(Routes.SALES_REPORT) {
+            SalesReportScreen(shopId = shopId, onBack = { navController.popBackStack() })
         }
         composable(Routes.CATEGORY_REPORT) {
             CategoryReportScreen(shopId = shopId, onBack = { navController.popBackStack() })

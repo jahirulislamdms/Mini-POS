@@ -41,6 +41,7 @@ fun TabNavGraph(
     onOpenActivities: () -> Unit,
     onOpenCashReport: () -> Unit,
     onOpenBuyReport: () -> Unit,
+    onOpenSalesReport: () -> Unit,
     onOpenCategoryReport: () -> Unit,
     onOpenCashDrawer: () -> Unit,
     onOpenBarcodePrint: () -> Unit,
@@ -71,13 +72,11 @@ fun TabNavGraph(
                     onBuy = { navController.navigate(Routes.BUY) { launchSingleTop = true } },
                     onOpenCashDrawer = onOpenCashDrawer,
                     onOpenSalesLedger = onOpenSalesLedger,
-                    onOpenPurchaseLedger = onOpenPurchaseLedger,
-                    onOpenExpenses = onOpenExpenses,
+                    onOpenProducts = onOpenProductsTab,
+                    onOpenDailyReport = onOpenDailyReport,
+                    onOpenBuyReport = onOpenBuyReport,
                     onOpenDueLedger = onOpenDueLedger,
-                    onOpenStockReport = onOpenStockReport,
-                    onOpenBusinessReport = onOpenBusinessReport,
-                    onOpenSaleDetail = onOpenSaleDetail,
-                    onOpenPurchaseDetail = onOpenPurchaseDetail,
+                    onOpenExpenses = onOpenExpenses,
                 ),
             )
         }
@@ -98,8 +97,11 @@ fun TabNavGraph(
                 onOpenBusinessReport = onOpenBusinessReport,
                 onOpenDailyReport = onOpenDailyReport,
                 onOpenCashReport = onOpenCashReport,
+                onOpenSalesReport = onOpenSalesReport,
                 onOpenBuyReport = onOpenBuyReport,
+                onOpenExpenses = onOpenExpenses,
                 onOpenCategoryReport = onOpenCategoryReport,
+                onOpenDueLedger = onOpenDueLedger,
             )
         }
         composable(Routes.SETTINGS) {
@@ -109,9 +111,7 @@ fun TabNavGraph(
                 onOpenProducts = onOpenProductsTab,
                 onOpenCategories = onOpenCategories,
                 onOpenUnits = onOpenUnits,
-                onOpenExpenses = onOpenExpenses,
                 onOpenExpenseCategories = onOpenExpenseCategories,
-                onOpenDueLedger = onOpenDueLedger,
                 onOpenCashManagement = onOpenCashManagement,
                 onOpenBackup = onOpenBackup,
                 onOpenLicense = onOpenLicense,

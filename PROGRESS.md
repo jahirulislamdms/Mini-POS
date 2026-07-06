@@ -34,8 +34,11 @@ When done: tick the box, advance CURRENT POSITION, add a SESSION LOG line, then 
 
 ## ★ CURRENT POSITION
 **Phase:** POST-RELEASE — Phases 1 (Bug Fix), 2 (Sell/Products/Nav) & 3 (Cash mgmt · Daily report · Backup reminder) COMPLETE.
-**Next task:** None — **all Future Updates roadmap phases (1–31, incl. all sub-phases) are COMPLETE** (latest:
-Phase 31 — per-shop default unit "pcs" pre-selected on new products, DB v7). Awaiting the owner's next request.
+**Next task:** None — **all Future Updates roadmap phases (1–37, incl. all sub-phases) are COMPLETE** (latest:
+Phase 37 — Sales Report shows Total Sales + Total Profit and full invoice cards with every product
+sold; **v1.37**).
+**Standing rule: completing Future Updates Phase N sets versionName to "1.N" + versionCode to N** (app/build.gradle.kts).
+Awaiting the owner's next request.
 See the FUTURE UPDATES (ROADMAP) section below.
 
 **STATUS THIS SESSION (post-release work; all 12 original build phases were already complete):**
@@ -125,7 +128,7 @@ Room 2.8.4 / KSP 2.3.9. Build: `JAVA_HOME="C:/Program Files/Android/Android Stud
 ---
 
 ## 🔮 FUTURE UPDATES (ROADMAP)
-> Owner-requested post-release work. **All phases (1–20, incl. 14.1) are implemented and building clean** (Phase 15
+> Owner-requested post-release work. **All phases (1–37, incl. sub-phases) are implemented and building clean** (Phase 15
 > adds Settings → Activities + Undo, DB v4; Phase 16 adds the Home Stock Value card; Phase 17 makes Current Balance
 > petty-cash + adds the Cash Management Report; Phase 18 reuses Activities on the Home recent list; Phase 19 adds the
 > Buy Report; Phase 20 caps due payments at the outstanding balance; Phase 21 removes cash-row delete (Activities
@@ -1996,6 +1999,447 @@ Set **PCS (Pieces)** as the default unit throughout the application to simplify 
 - Existing products should remain unchanged and continue using their currently assigned unit.
 - Reuse the existing Units system and do not modify any other product or inventory functionality.
 - Keep the UI and existing unit management features unchanged.
+
+
+# Future Updates Phase 32 – Automatic Backup System
+
+**Status:** ✅ COMPLETE (2026-07-04)
+
+### Implementation
+- [x] **Auto Backup section in Backup & restore** (`BackupScreen`): enable/disable switch (**enabled by default** for new installs), backup-folder row (Android folder picker via SAF `OpenDocumentTree`; persisted with `takePersistableUriPermission`, remembered across restarts, changeable anytime — old folder permission released), **frequency** dialog (Every day / 2 / 3 / 7 / 15 / 30 days, default **1 day**), **backup time** dialog (Material TimePicker, default **11:00 PM**), plus "Last automatic backup: …" status line.
+- [x] **Settings persist** in new `AutoBackupPrefs` (DataStore `minipos_auto_backup_prefs`: enabled / folderUri / frequencyDays / hour / minute / lastSuccessAt; `active` = enabled AND folder chosen).
+- [x] **Background job**: `AutoBackupWorker` + `AutoBackupScheduler` — self-rescheduling one-time WorkManager job (same pattern as the backup reminder) firing at the exact configured time. **Reuses `BackupManager.export()`** — identical zip format as manual backups; backs up the **current shop** into the chosen folder as `MiniPOSAuto_<shop>_<yyyyMMdd_HHmmss>.zip` (writes via `DocumentFile`; new `androidx.documentfile:1.0.1` dep). Half-written files are deleted on export failure.
+- [x] **Retention**: after each success, keeps the newest **15** `MiniPOSAuto_*` zips and deletes older ones — manual backups (always `MiniPOS_*`, different prefix) are never touched.
+- [x] **Missed-backup catch-up**: `AutoBackupScheduler.sync()` on every app open — next run = last-success date + frequency at the set time; if that moment already passed (phone off / app closed), the backup runs **immediately in the background**, then the normal schedule continues.
+- [x] **Reminder interplay**: the daily backup-reminder notification keeps working while auto backup is off, and is **suppressed while auto backup is active** (gated in `MiniPosApp`, `BackupReminderWorker`, `SettingsViewModel` and on every auto-setting change; re-scheduled per its own prefs when auto backup is turned off).
+- [x] **Notifications** (offline, existing `Notifier` channel): folder unavailable / export error → "Automatic backup failed" (ID 1004); **no successful auto backup for 3 days** → "Automatic backup needs attention" (ID 1005). Failed runs retry the next day at the set time (never a hot loop).
+- [x] Manual backup & restore untouched; 100% offline. assembleDebug ✓ (clean).
+
+### Goal
+
+Improve the existing backup system by adding a fully automatic backup feature that allows users to schedule backups without manual intervention.
+
+### Requirements
+
+## Auto Backup
+
+- Add a new **Automatic Backup** section inside the existing **Backup** settings.
+- The feature should be **enabled by default** for new installations.
+- Users should be able to **enable or disable** Automatic Backup at any time.
+
+## Backup Location
+
+- Allow users to select the backup folder **once** using the Android folder picker.
+- The application should remember the selected folder and use it for all future automatic backups.
+- Users can change the backup folder at any time from the Backup settings.
+
+## Backup Schedule
+
+- Allow users to configure:
+  - **Backup Frequency** (default: **every 1 day**).
+  - **Backup Time** (default: **11:00 PM** every day).
+- The application should automatically create a backup based on the configured schedule.
+
+## Backup Retention
+
+- Keep the **latest 15 automatic backups**.
+- When a new automatic backup is created and the total exceeds **15**, automatically delete the oldest automatic backup.
+- Manual backups should **not** be affected by this cleanup process.
+
+## Backup Notifications
+
+- The existing daily backup reminder notification should continue to work when **Automatic Backup is disabled**.
+- If **Automatic Backup is enabled**, disable the daily backup reminder notification since backups are being created automatically.
+- If an automatic backup has **not been successfully created for 3 consecutive days**, display a notification reminding the user to open the app and check the backup system.
+
+## Missed Backup Handling
+
+- If the scheduled backup time passes while the device is turned off or the application is not running, the backup cannot be created at that time.
+- In this case, when the user next opens the application, it should automatically detect the missed backup schedule and create the pending backup immediately.
+- After the backup is completed, the normal backup schedule should continue as configured.
+
+## Backup Process
+
+- Automatic backups should use the same backup format and logic as the existing manual backup system.
+- Reuse the existing backup functionality wherever possible.
+- Do not create a separate backup format.
+- Manual backups should continue to work alongside automatic backups.
+
+## General Requirements
+
+- Automatic backups should run in the background without interrupting normal app usage.
+- If the selected backup folder is unavailable, notify the user with an appropriate error message.
+- Keep the existing manual backup and restore features unchanged.
+- The Automatic Backup feature should work completely offline.
+- The automatic backup settings should remain saved after the device restarts or the application is reopened.
+- Do not modify any existing backup or restore functionality except to add the new automatic backup feature.
+
+# 
+# Future Updates Phase 33 – Settings Page Reorganization
+
+**Status:** ✅ COMPLETE (2026-07-04)
+
+### Implementation
+- [x] **Pure layout change in `SettingsScreen`** — every item, label, dialog, callback and behavior is untouched; only grouping, order, spacing and icons changed. No other file modified.
+- [x] **9 fragmented sections → 7 logical groups**, each rendered as **one grouped card** (`AppCard(contentPadding = false)`) with thin inset dividers between rows — replaces 17 separate one-row cards for a much cleaner, standard settings look:
+  - **Shop** (Manage shops) · **Inventory** (Products & inventory, Categories, Units, **Low-stock threshold** — moved next to its inventory siblings) · **Money** (Cash Management, Expenses, Expense categories, Due ledger) · **Printing** (Printing Settings, Barcode Printing — pulled out of "Catalog" into their own group) · **Notifications** (Low-stock alerts, Due reminders, Backup reminder, Backup reminder time) · **Data & history** (Backup & restore, Activities) · **App** (License Management, About MINI POS).
+- [x] **De-duplicated icons** so every row is visually distinct: Expense categories → Label (was Category twice), Low-stock threshold → Tune (was Warning twice), Backup reminder → Alarm (was Backup twice), Activities → History. All icons keep the BrandYellow tint; theme/design language unchanged.
+- [x] Every setting appears exactly once; no duplicates existed or were created. assembleDebug ✓ (clean).
+
+### Goal
+
+Reorganize the **Settings** page to make it cleaner, more professional, and easier to navigate.
+
+### Requirements
+
+- This update is **only** for reorganizing the **Settings** menu.
+- Give full freedom to redesign the layout, grouping, and order of the Settings page.
+- Use your best UI/UX judgment to create the most professional and user-friendly Settings page possible.
+
+### Important
+
+- **Do NOT change any existing functionality.**
+- **Do NOT add any new features.**
+- **Do NOT remove any existing features.**
+- **Do NOT change the behavior of any setting.**
+- **Do NOT rename existing features unless absolutely necessary for better clarity.**
+- **Do NOT modify any business logic.**
+- **Do NOT change any workflows or user interactions.**
+
+### Scope
+
+- Rearrange all existing menu items into the most logical categories.
+- Remove duplicate menu items or duplicate sections if any exist.
+- Ensure every setting appears only once.
+- Improve the visual hierarchy, spacing, grouping, icons, and overall organization.
+- Make related settings easy to find.
+- Keep the MINI POS theme, colors, and design language consistent.
+
+### General Requirements
+
+- Preserve **100% of the existing functionality**.
+- The only purpose of this update is to make the **Settings** page look cleaner, more organized, and more professional.
+- Think like a professional UI/UX designer and reorganize the menu for the best possible user experience without changing how the application works.
+
+# Future Updates Phase 34 – Home Dashboard Layout Reorganization
+
+**Status:** ✅ COMPLETE (2026-07-04)
+
+### Implementation
+- [x] **Dashboard summary untouched**: yellow hero header (Current Balance) + Today's Sales / Today's Expenses / You'll Receive / You'll Give cards — same calculations, layout and position.
+- [x] **Inventory boxes equalized**: all three tiles (Types of Products, Total Units, Stock Value) now render through one `CountTile` at identical size (`Row(height(IntrinsicSize.Min))` + `weight(1f).fillMaxHeight()`); Stock Value shows the same `Money.format` value it always did. Sell/Buy big buttons keep their spot below.
+- [x] **New "Ledger Books" section** — balanced 2×2 grid of equal tiles reusing existing screens (no new features): **Sales Ledger** → Daily Transactions Report, **Buy Ledger** → Buy Report, **Due Ledger** → Due (Baki) ledger, **Expense Ledger** → Expenses.
+- [x] **Quick Access trimmed to 3 equal tiles**: Cash Drawer, **Sales** (the original shortcut — opens the Sales Ledger to view completed sales & reprint receipts; owner follow-up replaced the briefly-added "Sale"/Sell-tab tile) and **Products** (opens the Products tab). Purchase ledger stays reachable from the Buy screen; Reports has its own tab — nothing became unreachable.
+- [x] **Recent Activity unchanged** (same source, rows and view-only behavior); dashboard credit line unchanged.
+- [x] **Due Ledger (Baki) moved from Settings → Reports page** (new "Due Ledger (Baki)" entry after Category Report; row + callback removed from `SettingsScreen`, added to `ReportScreen`; same `DUE_LEDGER` route & screen). `HomeActions` rewired (adds onOpenProducts/onOpenDailyReport/onOpenBuyReport, keeps onOpenSalesLedger; drops the now-unused purchase-ledger/report/detail callbacks). Zero business-logic changes. assembleDebug ✓ (clean).
+
+### Goal
+
+Improve the layout of the **Home Dashboard** by reorganizing existing sections to create a cleaner, more balanced, and more professional appearance.
+
+### Important
+
+- **Do NOT change any existing functionality.**
+- **Do NOT add any new features.**
+- **Do NOT remove any existing features.**
+- **Only rearrange the layout and improve the visual appearance as described below.**
+
+---
+
+## Dashboard Summary
+
+Keep the following dashboard summary cards **exactly as they are**. Do **not** change their functionality, calculations, layout, or position.
+
+- Current Balance
+- Today's Sales
+- Today's Expenses
+- You'll Receive
+- You'll Give
+
+Everything in this section should remain unchanged.
+
+---
+
+## Inventory
+
+- Keep the existing Inventory functionality unchanged.
+- Adjust the size of all Inventory boxes so they are the **same size**.
+- Make the layout look balanced, aligned, and visually consistent.
+
+---
+
+## Ledger Books
+
+Create a **Ledger Books** section containing the following four options:
+
+1. Sales Ledger
+2. Buy Ledger
+3. Due Ledger
+4. Expense Ledger
+
+Use the existing functionality for each option:
+
+- **Sales Ledger** → Open the existing **Daily Transaction Report** from the Reports section.
+- **Buy Ledger** → Open the existing **Buy Report** from the Reports section.
+- **Due Ledger** → Open the existing **Due (Baki)** feature.
+- **Expense Ledger** → Open the existing **Expenses** feature.
+
+### Layout
+
+- Display all four Ledger Books together in a clean and balanced layout.
+- Make every option box exactly the **same size**.
+- Keep consistent spacing, padding, icons, and alignment.
+- The section should look clean, balanced, and professional.
+
+---
+
+## Quick Access
+
+Keep only the following Quick Access options:
+
+1. Cash Drawer
+2. Sale
+3. Products
+
+Reuse the existing functionality for each option.
+
+---
+
+## Recent Activities
+
+- Keep the **Recent Activities** section exactly as it is.
+- Do not change its functionality or appearance.
+
+---
+
+## Move Existing Feature
+
+- Move the **Due Ledger (Baki)** menu from the **Settings** page to the **Reports** page.
+- Do **not** change its functionality.
+- Only change its location within the application.
+
+---
+
+## General Requirements
+
+- Preserve **100% of the existing functionality**.
+- Reuse all existing screens, reports, and logic.
+- Do not create duplicate features.
+- Do not modify any business logic.
+- Only reorganize the layout and menu positions as described above.
+- Ensure the Home Dashboard has a clean, modern, balanced, and professional UI while keeping all existing functionality intact.
+
+# Future Updates Phase 35 – Sales Report, Expense Report & Version Management
+
+**Status:** ✅ COMPLETE (2026-07-04)
+
+### Implementation
+- [x] **Sales Report** (new `SalesReportScreen`/`SalesReportViewModel`, route `SALES_REPORT`, threaded AppRoot→TabShell→NavGraph→ReportScreen): mirrors the Buy Report — Day / Month / Custom range chips + date pickers, **Total Sales Amount** StatCard (green), and one card per sale showing **date & time, invoice number** (receipt format `INV-S000123`), **customer name** (from the sale's party, when available), **total, payment method (Cash/Due), paid amount and due amount** (due shown in red when > 0). Reads existing `Sale` rows via `SaleRepository.observeBetween` + party names via `PartyRepository.observeParties` — no new tables, no duplicated data. PDF export via the standard `ReportPdfAction` ("sales-report.pdf").
+- [x] **Expense Report moved to Reports**: the "Expenses" entry left Settings → Money and now appears on the Reports page as **"Expense Report"** (same `EXPENSES` route, same screen, functionality & calculations untouched; also still reachable from Home → Ledger Books → Expense Ledger). Settings → Money keeps Cash Management + Expense categories.
+- [x] **Reports page order**: Daily Transactions · Stock · Business · Cash Management · **Sales Report** · Buy Report · **Expense Report** · Category Report · Due Ledger (Baki). Owner follow-up: the Reports list is now **scrollable** (`verticalScroll`) so all entries stay reachable on any screen size.
+- [x] **Version management**: `versionName = "1.35"` / `versionCode = 35` (About MINI POS reads the version from PackageManager, so it now shows "Version 1.35" and will always match). **Standing rule from now on: completing Future Updates Phase N sets the app version to v1.N** (Phase 36 → 1.36, …).
+- [x] No business logic or calculations touched. assembleDebug ✓ (clean).
+
+### Goal
+
+Improve the **Reports** section by adding a dedicated **Sales Report**, moving the existing **Expense Report** into the Reports page, and introduce a versioning system that is updated with every completed phase.
+
+---
+
+## Sales Report
+
+- Add a new report called **Sales Report** in the **Reports** section.
+- The Sales Report should be similar in structure and functionality to the existing **Buy Report**.
+- Each record should include:
+  - Date and time
+  - Invoice Number
+  - Customer Name (if available)
+  - Total Sale Amount
+  - Payment Method
+  - Paid Amount
+  - Due Amount (if applicable)
+- The report should support:
+  - Single date report
+  - Monthly report
+  - Custom date range report
+- Display the **Total Sales Amount** for the selected period.
+- Reuse the existing sales transaction data. Do not create duplicate records or a separate database.
+
+---
+
+## Expense Report
+
+- Move the existing **Expense Report** from **Settings → Money** to the **Reports** page.
+- Reuse the existing Expense Report functionality.
+- Do **not** create a new Expense Report.
+- Do **not** modify its functionality or calculations.
+- Only change its location so it appears with the other reports.
+
+---
+
+## Application Version Management
+
+- Starting with this phase, update the application version according to the completed phase number.
+- For this phase, update the application version to **v1.35**.
+- Display the current application version in **Settings → About MINI POS**.
+- Going forward, every completed phase should automatically increment the application version using this format:
+  - Phase 36 → **v1.36**
+  - Phase 37 → **v1.37**
+  - Phase 38 → **v1.38**
+  - And so on...
+- Ensure the version shown in **About MINI POS** always matches the current application version after each completed phase.
+
+---
+
+## General Requirements
+
+- Preserve **100% of the existing functionality**.
+- Reuse all existing reports, data, and business logic.
+- Do not create duplicate features.
+- Do not modify any report calculations.
+- Only add the new **Sales Report**, relocate the existing **Expense Report** to the **Reports** page, and implement the application version management described above.
+
+# Future Updates Phase 36 – Automatic Backup Setup Improvement
+
+**Status:** ✅ COMPLETE (2026-07-04)
+
+### Implementation
+- [x] **Defaults unchanged**: auto backup stays enabled by default, never runs without a folder, and the chosen folder is remembered (all from Phase 32).
+- [x] **Daily setup reminder at 11:00 AM** (new `AutoBackupSetupReminderWorker`, unique work `minipos_auto_backup_setup_reminder`): fires while auto backup is **enabled but no folder is chosen**, repeats every day until a valid folder is selected, and is cancelled automatically by `AutoBackupScheduler.sync()` (runs at app start & on every setting change) once a folder exists or the switch goes off. Notification ID 1006.
+- [x] **Tap → Backup & restore page**: notification carries an `EXTRA_OPEN_BACKUP` extra; `MainActivity` (onCreate + onNewIntent, singleTask) forwards it to new `PendingNav` (one-shot StateFlow), consumed in `MainScaffold` → `navigate(Routes.BACKUP)`. Works cold-start (survives splash + license gate) and while the app is open.
+- [x] **First-time folder verification**: picking a folder immediately creates a real backup **before the folder is adopted** — extracted the worker's backup execution into shared `AutoBackupRunner.run()` (same manual-backup zip format, same retention pruning, sets lastSuccessAt). On success: folder persisted, "Backup completed successfully…" shown, normal schedule continues. On failure: clear reason shown (**storage unavailable / folder access denied / could not create file / insufficient storage (ENOSPC) / permission lost / other error message**), the new grant is released, the previous folder (or none) stays — so scheduled backups never start against a broken folder. Progress spinner ("Creating a backup to verify the folder…") while verifying.
+- [x] `AutoBackupWorker` refactored onto the same runner (behavior, scheduling & retention identical); manual backup/restore untouched. **Version → v1.36** (versionCode 36; About auto-updates). assembleDebug ✓ (clean).
+
+### Goal
+
+Improve the initial setup experience of the Automatic Backup system by validating the selected backup folder immediately and reminding the user to complete the setup if a backup folder has not yet been selected.
+
+---
+
+## Default Behavior
+
+- Keep **Automatic Backup** enabled by default for new installations.
+- The Automatic Backup feature should **not** function until the user selects a backup folder.
+- The selected backup folder should be remembered and used for all future automatic backups.
+
+---
+
+## Backup Folder Reminder
+
+- If **Automatic Backup** is enabled but **no backup folder has been selected**, send a reminder notification **every day at 11:00 AM**.
+- Continue sending the reminder notification every day until the user selects a valid backup folder.
+- The notification should remind the user to complete the Automatic Backup setup by selecting a backup folder.
+- Tapping the notification should open the **Settings → Backup & Restore** page so the user can select a backup folder.
+- Once a valid backup folder has been selected, automatically stop the daily reminder notifications.
+
+---
+
+## First-Time Folder Selection
+
+- When the user selects a backup folder for the **first time**, immediately create a backup using the current application data.
+- This first backup should use the same backup format and logic as the existing manual backup system.
+- The purpose of this backup is to verify that the selected folder is valid and writable before scheduled automatic backups begin.
+
+---
+
+## Backup Result
+
+### If the backup is successful
+
+- Display a confirmation message indicating that the backup was completed successfully.
+- Continue using the selected folder for all future automatic backups.
+- Future backups should follow the configured automatic backup schedule.
+
+### If the backup fails
+
+- Display a clear error message indicating that the backup failed.
+- Show the reason for the failure whenever possible, such as:
+  - Folder access denied
+  - Storage unavailable
+  - Insufficient storage space
+  - Any other applicable error
+- Do not start automatic backups until the issue is resolved or a valid backup folder is selected.
+
+---
+
+## General Requirements
+
+- After the initial backup is successfully completed, the Automatic Backup system should continue working normally according to the configured schedule.
+- Reuse the existing backup format and backup logic.
+- Do not modify the existing manual Backup and Restore functionality.
+- Do not change any existing Automatic Backup scheduling or backup retention logic.
+- This update only improves the first-time Automatic Backup setup, folder validation, and reminder notification process.
+
+# Future Updates Phase 37 – Sales Report Enhancement
+
+**Status:** ✅ COMPLETE (2026-07-04)
+
+### Implementation
+- [x] **Summary now shows Total Sales + Total Profit** side-by-side (two StatCards). Total Sales = period sum of sale totals (same as the ledger); Total Profit reuses the **existing** `SaleDao.observeProfitBetween` SQL already used by the Daily & Business reports — no duplicate calculations.
+- [x] **Each record is now a full invoice card** (ledger-style): Date & Time (bold) · Invoice Number (INV-S######) · Payment method (Cash/Due) · **Total prominent** (bold green) — then **every product sold in the invoice** (name, qty × selling price, product total; same row layout as the Sales Ledger / Buy Report cards), then the existing Paid / Due footer. Customer name still shown when available.
+- [x] Product lines come from the existing `SaleItem` data (`getItemsForShop().groupBy { saleId }` — the same pattern the Daily Report uses); nothing new is stored.
+- [x] **Filters unchanged**: Day / Month / Custom range. PDF export updated to match (Total Sales + Total Profit + per-invoice product lines).
+- [x] **Version → v1.37** (versionCode 37; About auto-updates). assembleDebug ✓ (clean).
+
+### Goal
+
+Improve the existing **Sales Report** to display complete invoice details in a clean, card-based layout similar to the **Sales Ledger** available from the Home Dashboard.
+
+### Requirements
+
+#### Sales Summary
+
+Keep the summary section at the top of the report and display:
+
+- Total Sales
+- Total Profit
+
+Use the same calculation and business logic currently used in the **Sales Ledger**.
+
+---
+
+#### Sales Report Layout
+
+Update each sales record to display as a single invoice card.
+
+Each invoice card should display:
+
+- Date & Time
+- Invoice Number
+- Payment Method (Cash / Due)
+- Total Invoice Amount (displayed prominently)
+
+Below the invoice information, display **all products sold in that invoice**.
+
+For each product, display:
+
+- Product Name
+- Quantity × Selling Price
+- Product Total
+
+The layout should be similar to the existing **Sales Ledger** so users can quickly see everything sold in one invoice without opening additional screens.
+
+---
+
+#### Report Filters
+
+Keep the existing filters:
+
+- Single Date
+- Monthly
+- Custom Date Range
+
+---
+
+#### General Requirements
+
+- Reuse the existing Sales Report.
+- Reuse the existing Sales Ledger business logic and calculations.
+- Do **not** create duplicate data or duplicate calculations.
+- Preserve **100%** of the existing functionality.
+- Do **not** modify any business logic.
+- Only improve the information displayed and the layout of the Sales Report.
+- The report should remain clean, easy to read, and professional.
 ---
 
 ## ✅ TASK CHECKLIST
@@ -2073,6 +2517,12 @@ Set **PCS (Pieces)** as the default unit throughout the application to simplify 
 ---
 
 ## 📝 SESSION LOG (newest at top, one line each)
+- 2026-07-04 — Future Updates Phase 37 done (Sales Report Enhancement): summary now Total Sales + Total Profit (profit via existing SaleDao.observeProfitBetween — same SQL as Daily/Business reports, no duplicate math); each record is a full invoice card (date/time, INV-S###### invoice no, Cash/Due, prominent total, customer when available) listing every product sold (TxnLine rows via getItemsForShop().groupBy{saleId}, ledger-style qty × price + line total) + Paid/Due footer; Day/Month/Custom filters unchanged; PDF export updated to match; v1.37/versionCode 37. assembleDebug ✓.
+- 2026-07-04 — Future Updates Phase 36 done (Automatic Backup Setup Improvement): AutoBackupRunner extracted (shared backup exec: manual-format zip, prune 15, lastSuccessAt, reason-mapped failures incl. ENOSPC/SecurityException); folder pick now verified by an immediate real backup before adoption (success msg / clear error + previous folder kept, new grant released; spinner in BackupScreen); AutoBackupSetupReminderWorker — daily 11:00 AM "finish setup" notification (ID 1006) while enabled-but-folderless, auto-cancelled via sync(); tap opens Backup page via EXTRA_OPEN_BACKUP → MainActivity(onNewIntent) → PendingNav → MainScaffold navigate(BACKUP); worker refactor behavior-identical; v1.36/versionCode 36. assembleDebug ✓.
+- 2026-07-04 — Future Updates Phase 35 done (Sales Report, Expense Report & Version Management): new SalesReportScreen/VM (mirrors Buy Report: Day/Month/Custom, Total Sales Amount, per-sale date/time + INV-S invoice no + customer name + total + Cash/Due + paid + due, ReportPdfAction PDF; reads existing Sale rows + party names, no new tables); route SALES_REPORT threaded through AppRoot/TabShell/NavGraph/ReportScreen; "Expenses" entry moved Settings→Reports as "Expense Report" (same EXPENSES route/screen); versionName "1.35" + versionCode 35 — About auto-shows it; standing rule: Phase N ⇒ v1.N. assembleDebug ✓.
+- 2026-07-04 — Future Updates Phase 34 done (Home Dashboard Layout Reorganization): summary cards & Recent Activity untouched; Inventory tiles equalized (one CountTile style, IntrinsicSize.Min row, Stock Value same Money.format value); new Ledger Books 2×2 grid reusing existing screens (Sales Ledger→Daily Report, Buy Ledger→Buy Report, Due Ledger→Due (Baki), Expense Ledger→Expenses); Quick Access trimmed to Cash Drawer/Sales (Sales Ledger, kept per owner follow-up — views completed sales & reprints receipts)/Products (Products tab); Due Ledger (Baki) entry moved SettingsScreen→ReportScreen (same route/screen); HomeActions rewired (3 new callbacks, unused ones dropped). No logic changes. assembleDebug ✓.
+- 2026-07-04 — Future Updates Phase 33 done (Settings Page Reorganization): SettingsScreen-only layout change — 9 fragmented sections → 7 logical groups (Shop / Inventory / Money / Printing / Notifications / Data & history / App), one grouped AppCard per section with inset dividers instead of 17 one-row cards; Low-stock threshold moved beside inventory items, Printing split out of Catalog; duplicate icons replaced (Label/Tune/Alarm/History); all 17 items, labels, dialogs, callbacks & behavior identical. assembleDebug ✓.
+- 2026-07-04 — Future Updates Phase 32 done (Automatic Backup System): AutoBackupPrefs (DataStore: enabled default ON, SAF folder Uri, frequency default 1 day, time default 23:00, lastSuccessAt) + AutoBackupWorker/Scheduler (self-rescheduling WorkManager job; reuses BackupManager.export → MiniPOSAuto_*.zip via DocumentFile; keeps newest 15 auto backups, manual untouched; failure & 3-day-stale notifications IDs 1004/1005; failed runs retry next day); missed-run catch-up via sync() in MiniPosApp.onCreate; backup reminder suppressed while auto backup active (MiniPosApp/BackupReminderWorker/SettingsViewModel gates); BackupScreen Auto Backup section (switch, folder picker w/ persistable permission, frequency & time dialogs, last-backup line); new androidx.documentfile:1.0.1 dep. assembleDebug ✓.
 - 2026-07-01 — Future Updates Phase 31 done (Default Unit): ShopSettings.defaultUnit (default "pcs", DB v6→v7 MIGRATION_6_7, in backups); new products pre-select it once via ProductFormScreen LaunchedEffect (only when unit exists & none chosen; edits untouched); Settings→Units shows a yellow "Default" badge + "Set default" per unit (UnitViewModel.setDefault; rename follows the default). Units system otherwise unchanged. assembleDebug ✓.
 - 2026-07-01 — Future Updates Phase 30 done (Advanced Printing Settings): PrintPrefs expanded (ReceiptField 19 toggles incl. new email/website/subtotal/thank-you, ReportField 6 toggles, receipt alignment Center/Left, report font/margins, footers/notes; disabled-sets → future fields default on); ReceiptPdf rewritten (per-toggle rendering + auto-scaled shop logo, no gaps when off); ReportPdf gained ReportDecor (logo/shop info/title/generated-at/footer/notes + font/margins) applied centrally via ReportPdfAction(shopId) → all 7 reports decorated automatically; Printer Settings screen expanded → "Printing Settings" hub (all toggles + texts + test print); base A4/Letter + any printer paper via system dialog. Tax omitted (no tax on sales). assembleDebug ✓.
 - 2026-07-01 — Future Updates Phase 29 done (Receipts & PDF Reports): new core/print — PrintPrefs (DataStore: receipt width/margin/font/footer + PDF paper A4/Letter), ReceiptPdf (thermal-style narrow PDF, all txn details, INV-S/B numbers), ReportPdf (generic line-model renderer w/ page breaks), PdfShare (save/print/preview via new FileProvider) + ReceiptPrinter; Sell/Buy checkout callbacks now return ids → "Print receipt?" Yes/No dialog after every sale/purchase; reprint icons on Sales & Purchase ledger rows; ReportPdfAction (Preview/Save/Print) added to Business, Stock, Buy, Category, Cash Mgmt, Cash Drawer & Product History reports; Settings→Printer Settings screen (route PRINTER_SETTINGS) with test-receipt print. Offline via Android print framework. assembleDebug ✓.

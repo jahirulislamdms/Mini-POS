@@ -46,6 +46,7 @@ object Routes {
     const val CASH_REPORT = "cash_report"
     const val BUY_REPORT = "buy_report"
     const val CATEGORY_REPORT = "category_report"
+    const val SALES_REPORT = "sales_report"
 
     const val CASH_MANAGEMENT = "cash_management"
     const val CASH_DRAWER = "cash_drawer"

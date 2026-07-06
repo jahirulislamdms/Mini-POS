@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
@@ -14,6 +16,9 @@ import androidx.compose.material.icons.filled.Assessment
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.Receipt
+import androidx.compose.material.icons.filled.Sell
 import androidx.compose.material.icons.filled.ShoppingBag
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -30,22 +35,26 @@ import com.minipos.core.theme.TextMuted
 import com.minipos.core.ui.AppCard
 import com.minipos.core.ui.AppTopBar
 
-/** Reports hub linking to the Stock Report and Business Report (P9). */
+/** Reports hub linking to every report + the Due Ledger (P9; Due Ledger moved here in Phase 34). */
 @Composable
 fun ReportScreen(
     onOpenStockReport: () -> Unit,
     onOpenBusinessReport: () -> Unit,
     onOpenDailyReport: () -> Unit,
     onOpenCashReport: () -> Unit,
+    onOpenSalesReport: () -> Unit,
     onOpenBuyReport: () -> Unit,
+    onOpenExpenses: () -> Unit,
     onOpenCategoryReport: () -> Unit,
+    onOpenDueLedger: () -> Unit,
 ) {
     Scaffold(
         containerColor = AppBackground,
         topBar = { AppTopBar(title = "Reports") },
     ) { innerPadding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(innerPadding).padding(16.dp),
+            modifier = Modifier.fillMaxSize().padding(innerPadding)
+                .verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             ReportEntry(
@@ -72,17 +81,38 @@ fun ReportScreen(
                 subtitle = "Cash In / Out by day, month or custom range",
                 onClick = onOpenCashReport,
             )
+            // Phase 35: dedicated Sales Report (same structure as the Buy Report).
+            ReportEntry(
+                icon = Icons.Filled.Sell,
+                title = "Sales Report",
+                subtitle = "All sales (Cash & Due) by day, month or custom range",
+                onClick = onOpenSalesReport,
+            )
             ReportEntry(
                 icon = Icons.Filled.ShoppingBag,
                 title = "Buy Report",
                 subtitle = "All purchases (Cash & Due) by day, month or custom range",
                 onClick = onOpenBuyReport,
             )
+            // Phase 35: moved here from Settings → Money — same screen, same behavior.
+            ReportEntry(
+                icon = Icons.Filled.Receipt,
+                title = "Expense Report",
+                subtitle = "Record & review expenses",
+                onClick = onOpenExpenses,
+            )
             ReportEntry(
                 icon = Icons.Filled.Category,
                 title = "Category Report",
                 subtitle = "Buy/sell quantity, amounts & profit by category",
                 onClick = onOpenCategoryReport,
+            )
+            // Phase 34: moved here from Settings — same screen, same behavior.
+            ReportEntry(
+                icon = Icons.Filled.People,
+                title = "Due Ledger (Baki)",
+                subtitle = "Parties, balances & payments",
+                onClick = onOpenDueLedger,
             )
         }
     }

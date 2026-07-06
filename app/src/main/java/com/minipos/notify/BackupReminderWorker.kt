@@ -20,7 +20,9 @@ class BackupReminderWorker(
         ServiceLocator.init(context) // idempotent
 
         val prefs = ServiceLocator.backupReminderPrefs
-        if (prefs.enabled.first()) {
+        // Phase 32: suppressed while automatic backup is active — backups happen on their own.
+        val autoActive = ServiceLocator.autoBackupPrefs.settings.first().active
+        if (prefs.enabled.first() && !autoActive) {
             Notifier.show(
                 context,
                 Notifier.ID_BACKUP,

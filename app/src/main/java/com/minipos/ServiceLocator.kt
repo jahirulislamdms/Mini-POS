@@ -11,6 +11,7 @@ import com.minipos.data.db.MIGRATION_5_6
 import com.minipos.data.db.MIGRATION_6_7
 import com.minipos.data.db.MiniPosDatabase
 import com.minipos.core.print.PrintPrefs
+import com.minipos.data.prefs.AutoBackupPrefs
 import com.minipos.data.prefs.BackupReminderPrefs
 import com.minipos.data.prefs.CurrentShopManager
 import com.minipos.data.repo.ActivityRepository
@@ -67,6 +68,8 @@ object ServiceLocator {
         private set
     lateinit var backupReminderPrefs: BackupReminderPrefs
         private set
+    lateinit var autoBackupPrefs: AutoBackupPrefs
+        private set
     lateinit var licenseManager: LicenseManager
         private set
     lateinit var printPrefs: PrintPrefs
@@ -104,6 +107,7 @@ object ServiceLocator {
             currentShopManager = CurrentShopManager(appContext)
             backupManager = BackupManager(db, appContext, currentShopManager)
             backupReminderPrefs = BackupReminderPrefs(appContext)
+            autoBackupPrefs = AutoBackupPrefs(appContext)
             licenseManager = LicenseManager(appContext)
             printPrefs = PrintPrefs(appContext)
             initialized = true

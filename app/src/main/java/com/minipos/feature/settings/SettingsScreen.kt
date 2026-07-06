@@ -5,30 +5,33 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.filled.Undo
+import androidx.compose.material.icons.filled.Alarm
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Key
+import androidx.compose.material.icons.filled.Label
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Payments
-import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Print
 import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material.icons.filled.Receipt
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Storefront
 import androidx.compose.material.icons.filled.Straighten
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -62,7 +65,11 @@ import com.minipos.core.ui.AppTopBar
 import com.minipos.core.ui.NameInputDialog
 import com.minipos.core.ui.SectionHeader
 
-/** Settings hub: shop, catalog, money, notifications, data, about (P12.1). */
+/**
+ * Settings hub (P12.1; reorganized in Phase 33): related items live in one grouped card per
+ * section — Shop / Inventory / Money / Printing / Notifications / Data & history / App.
+ * Pure layout change: every item, dialog and behavior is identical to before.
+ */
 @Composable
 fun SettingsScreen(
     shopId: Long,
@@ -70,9 +77,7 @@ fun SettingsScreen(
     onOpenProducts: () -> Unit,
     onOpenCategories: () -> Unit,
     onOpenUnits: () -> Unit,
-    onOpenExpenses: () -> Unit,
     onOpenExpenseCategories: () -> Unit,
-    onOpenDueLedger: () -> Unit,
     onOpenCashManagement: () -> Unit,
     onOpenBackup: () -> Unit,
     onOpenLicense: () -> Unit,
@@ -98,77 +103,96 @@ fun SettingsScreen(
         Column(
             modifier = Modifier.fillMaxSize().padding(innerPadding)
                 .verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             SectionHeader("Shop")
-            NavRow(Icons.Filled.Storefront, "Manage shops", "Switch, add, edit or delete shops", onOpenShops)
+            AppCard(contentPadding = false) {
+                NavRow(Icons.Filled.Storefront, "Manage shops", "Switch, add, edit or delete shops", onOpenShops)
+            }
 
-            SectionHeader("Catalog")
-            NavRow(Icons.Filled.Inventory2, "Products & inventory", "Add products, search, update stock", onOpenProducts)
-            NavRow(Icons.Filled.Category, "Categories", "Custom categories & sub-categories", onOpenCategories)
-            NavRow(Icons.Filled.Straighten, "Units", "Custom measurement units", onOpenUnits)
-            NavRow(Icons.Filled.QrCode, "Barcode Printing", "Generate & print barcode labels (PDF)", onOpenBarcodePrint)
-            NavRow(Icons.Filled.Print, "Printing Settings", "Customize receipts, reports & all printed documents", onOpenPrinterSettings)
+            SectionHeader("Inventory")
+            AppCard(contentPadding = false) {
+                NavRow(Icons.Filled.Inventory2, "Products & inventory", "Add products, search, update stock", onOpenProducts)
+                RowDivider()
+                NavRow(Icons.Filled.Category, "Categories", "Custom categories & sub-categories", onOpenCategories)
+                RowDivider()
+                NavRow(Icons.Filled.Straighten, "Units", "Custom measurement units", onOpenUnits)
+                RowDivider()
+                NavRow(
+                    Icons.Filled.Tune,
+                    "Low-stock threshold",
+                    "Default: ${settings?.lowStockDefault?.let { fmt(it) } ?: "…"} units",
+                    onClick = { showLowStock = true },
+                )
+            }
 
             SectionHeader("Money")
-            NavRow(Icons.Filled.Payments, "Cash Management", "Add or withdraw cash (adjusts balance)", onOpenCashManagement)
-            NavRow(Icons.Filled.Receipt, "Expenses", "Record & review expenses", onOpenExpenses)
-            NavRow(Icons.Filled.Category, "Expense categories", "Custom expense categories", onOpenExpenseCategories)
-            NavRow(Icons.Filled.People, "Due ledger (Baki)", "Parties, balances & payments", onOpenDueLedger)
+            AppCard(contentPadding = false) {
+                NavRow(Icons.Filled.Payments, "Cash Management", "Add or withdraw cash (adjusts balance)", onOpenCashManagement)
+                RowDivider()
+                NavRow(Icons.Filled.Label, "Expense categories", "Custom expense categories", onOpenExpenseCategories)
+                // Phase 34/35: Due Ledger (Baki) and the Expense Report moved to the Reports page.
+            }
 
-            SectionHeader("Inventory alerts")
-            NavRow(
-                Icons.Filled.Warning,
-                "Low-stock threshold",
-                "Default: ${settings?.lowStockDefault?.let { fmt(it) } ?: "…"} units",
-                onClick = { showLowStock = true },
-            )
+            SectionHeader("Printing")
+            AppCard(contentPadding = false) {
+                NavRow(Icons.Filled.Print, "Printing Settings", "Customize receipts, reports & all printed documents", onOpenPrinterSettings)
+                RowDivider()
+                NavRow(Icons.Filled.QrCode, "Barcode Printing", "Generate & print barcode labels (PDF)", onOpenBarcodePrint)
+            }
 
             SectionHeader("Notifications")
-            SwitchRow(
-                Icons.Filled.Warning,
-                "Low-stock alerts",
-                "Daily reminder when products run low",
-                checked = settings?.lowStockNotify ?: true,
-                onCheckedChange = vm::setLowStockNotify,
-            )
-            SwitchRow(
-                Icons.Filled.Notifications,
-                "Due reminders",
-                "Daily reminder of money to collect",
-                checked = settings?.dueNotify ?: true,
-                onCheckedChange = vm::setDueNotify,
-            )
-            SwitchRow(
-                Icons.Filled.Backup,
-                "Backup reminder",
-                "Daily reminder to back up your data",
-                checked = backupReminderEnabled,
-                onCheckedChange = vm::setBackupReminderEnabled,
-            )
-            NavRow(
-                Icons.Filled.Schedule,
-                "Backup reminder time",
-                formatTime(backupReminderHour, backupReminderMinute),
-                onClick = { showTimePicker = true },
-            )
+            AppCard(contentPadding = false) {
+                SwitchRow(
+                    Icons.Filled.Warning,
+                    "Low-stock alerts",
+                    "Daily reminder when products run low",
+                    checked = settings?.lowStockNotify ?: true,
+                    onCheckedChange = vm::setLowStockNotify,
+                )
+                RowDivider()
+                SwitchRow(
+                    Icons.Filled.Notifications,
+                    "Due reminders",
+                    "Daily reminder of money to collect",
+                    checked = settings?.dueNotify ?: true,
+                    onCheckedChange = vm::setDueNotify,
+                )
+                RowDivider()
+                SwitchRow(
+                    Icons.Filled.Alarm,
+                    "Backup reminder",
+                    "Daily reminder to back up your data",
+                    checked = backupReminderEnabled,
+                    onCheckedChange = vm::setBackupReminderEnabled,
+                )
+                RowDivider()
+                NavRow(
+                    Icons.Filled.Schedule,
+                    "Backup reminder time",
+                    formatTime(backupReminderHour, backupReminderMinute),
+                    onClick = { showTimePicker = true },
+                )
+            }
 
-            SectionHeader("Activity")
-            NavRow(
-                Icons.AutoMirrored.Filled.Undo,
-                "Activities",
-                "Review & undo recent transactions (last 30 days)",
-                onOpenActivities,
-            )
+            SectionHeader("Data & history")
+            AppCard(contentPadding = false) {
+                NavRow(Icons.Filled.Backup, "Backup & restore", "Export this shop to a .zip, or restore one", onOpenBackup)
+                RowDivider()
+                NavRow(
+                    Icons.Filled.History,
+                    "Activities",
+                    "Review & undo recent transactions (last 30 days)",
+                    onOpenActivities,
+                )
+            }
 
-            SectionHeader("Data")
-            NavRow(Icons.Filled.Backup, "Backup & restore", "Export this shop to a .zip, or restore one", onOpenBackup)
-
-            SectionHeader("License")
-            NavRow(Icons.Filled.Key, "License Management", "Status, Device ID, expiry · renew or replace", onOpenLicense)
-
-            SectionHeader("About")
-            NavRow(Icons.Filled.Info, "About MINI POS", "Offline POS for small shops", onClick = { showAbout = true })
+            SectionHeader("App")
+            AppCard(contentPadding = false) {
+                NavRow(Icons.Filled.Key, "License Management", "Status, Device ID, expiry · renew or replace", onOpenLicense)
+                RowDivider()
+                NavRow(Icons.Filled.Info, "About MINI POS", "Offline POS for small shops", onClick = { showAbout = true })
+            }
         }
     }
 
@@ -263,17 +287,26 @@ private fun AboutDialog(onDismiss: () -> Unit) {
     )
 }
 
+/** Thin divider between rows of a grouped card, indented past the leading icon. */
+@Composable
+private fun RowDivider() {
+    HorizontalDivider(modifier = Modifier.padding(start = 52.dp))
+}
+
 @Composable
 private fun NavRow(icon: ImageVector, title: String, subtitle: String, onClick: () -> Unit) {
-    AppCard(modifier = Modifier.clickable(onClick = onClick)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(icon, contentDescription = null, tint = BrandYellow, modifier = Modifier.size(28.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-            }
-            Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextMuted)
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = BrandYellow, modifier = Modifier.size(24.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
+        Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = TextMuted)
     }
 }
 
@@ -285,15 +318,17 @@ private fun SwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
 ) {
-    AppCard {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Icon(icon, contentDescription = null, tint = BrandYellow, modifier = Modifier.size(28.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
-            }
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Icon(icon, contentDescription = null, tint = BrandYellow, modifier = Modifier.size(24.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = TextMuted)
         }
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
 

@@ -4,8 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,7 +19,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Assessment
+import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PointOfSale
 import androidx.compose.material.icons.filled.Receipt
@@ -145,10 +147,14 @@ fun HomeScreen(
 
             item { SectionHeader("Inventory") }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CountTile("Types of Products", stats.productCount.toString(), Modifier.weight(1f))
-                    CountTile("Total Units", stats.totalUnits.asUnits(), Modifier.weight(1f))
-                    StatCard("Stock Value", stats.stockValue, OnSurface, Modifier.weight(1f))
+                // Phase 34: all three inventory boxes share the exact same size.
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.height(IntrinsicSize.Min),
+                ) {
+                    CountTile("Types of Products", stats.productCount.toString(), Modifier.weight(1f).fillMaxHeight())
+                    CountTile("Total Units", stats.totalUnits.asUnits(), Modifier.weight(1f).fillMaxHeight())
+                    CountTile("Stock Value", Money.format(stats.stockValue), Modifier.weight(1f).fillMaxHeight())
                 }
             }
 
@@ -162,8 +168,40 @@ fun HomeScreen(
                 }
             }
 
+            // Phase 34: the four ledger books in one balanced 2×2 grid of equal tiles.
+            item { SectionHeader("Ledger Books") }
+            item {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.height(IntrinsicSize.Min),
+                    ) {
+                        Shortcut("Sales Ledger", Icons.AutoMirrored.Filled.ReceiptLong, Modifier.weight(1f).fillMaxHeight(), actions.onOpenDailyReport)
+                        Shortcut("Buy Ledger", Icons.Filled.ShoppingBag, Modifier.weight(1f).fillMaxHeight(), actions.onOpenBuyReport)
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.height(IntrinsicSize.Min),
+                    ) {
+                        Shortcut("Due Ledger", Icons.Filled.People, Modifier.weight(1f).fillMaxHeight(), actions.onOpenDueLedger)
+                        Shortcut("Expense Ledger", Icons.Filled.Receipt, Modifier.weight(1f).fillMaxHeight(), actions.onOpenExpenses)
+                    }
+                }
+            }
+
+            // Phase 34: Quick Access trimmed to the three everyday actions.
             item { SectionHeader("Quick Access") }
-            item { ShortcutGrid(actions) }
+            item {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.height(IntrinsicSize.Min),
+                ) {
+                    Shortcut("Cash Drawer", Icons.Filled.PointOfSale, Modifier.weight(1f).fillMaxHeight(), actions.onOpenCashDrawer)
+                    // Completed sales & receipt reprint (Sales Ledger) — kept per the owner.
+                    Shortcut("Sales", Icons.AutoMirrored.Filled.ReceiptLong, Modifier.weight(1f).fillMaxHeight(), actions.onOpenSalesLedger)
+                    Shortcut("Products", Icons.Filled.Inventory2, Modifier.weight(1f).fillMaxHeight(), actions.onOpenProducts)
+                }
+            }
 
             item { SectionHeader("Recent Activity") }
             if (recentActivities.isEmpty()) {
@@ -242,23 +280,6 @@ private fun BigActionButton(text: String, color: androidx.compose.ui.graphics.Co
         modifier = modifier.height(56.dp),
     ) {
         Text(text, style = MaterialTheme.typography.titleMedium)
-    }
-}
-
-@Composable
-private fun ShortcutGrid(actions: HomeActions) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            // Phase 27: Cash Drawer replaces the Products shortcut (Products stays in the bottom nav).
-            Shortcut("Cash Drawer", Icons.Filled.PointOfSale, Modifier.weight(1f), actions.onOpenCashDrawer)
-            Shortcut("Sales", Icons.AutoMirrored.Filled.ReceiptLong, Modifier.weight(1f), actions.onOpenSalesLedger)
-            Shortcut("Purchases", Icons.Filled.ShoppingBag, Modifier.weight(1f), actions.onOpenPurchaseLedger)
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Shortcut("Expenses", Icons.Filled.Receipt, Modifier.weight(1f), actions.onOpenExpenses)
-            Shortcut("Due (Baki)", Icons.Filled.People, Modifier.weight(1f), actions.onOpenDueLedger)
-            Shortcut("Reports", Icons.Filled.Assessment, Modifier.weight(1f), actions.onOpenBusinessReport)
-        }
     }
 }
 

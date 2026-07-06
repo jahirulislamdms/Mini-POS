@@ -1,6 +1,7 @@
 package com.minipos
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -16,9 +17,12 @@ import androidx.compose.runtime.setValue
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.minipos.core.nav.AppRoot
+import com.minipos.core.nav.PendingNav
+import com.minipos.core.nav.Routes
 import com.minipos.core.theme.MiniPosTheme
 import com.minipos.feature.license.LicenseGate
 import com.minipos.feature.splash.SplashScreen
+import com.minipos.notify.Notifier
 import kotlinx.coroutines.delay
 
 class MainActivity : ComponentActivity() {
@@ -27,6 +31,7 @@ class MainActivity : ComponentActivity() {
         setTheme(R.style.Theme_MINIPOS)
         super.onCreate(savedInstanceState)
         requestNotificationPermissionIfNeeded()
+        handleNavIntent(intent)
         enableEdgeToEdge()
         setContent {
             MiniPosTheme {
@@ -47,6 +52,19 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleNavIntent(intent)
+    }
+
+    /** Phase 36: a backup-setup notification tap lands on Settings → Backup & restore. */
+    private fun handleNavIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(Notifier.EXTRA_OPEN_BACKUP, false) == true) {
+            intent.removeExtra(Notifier.EXTRA_OPEN_BACKUP)
+            PendingNav.request(Routes.BACKUP)
         }
     }
 

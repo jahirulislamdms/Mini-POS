@@ -18,6 +18,12 @@ object Notifier {
     const val ID_LOW_STOCK = 1001
     const val ID_DUE = 1002
     const val ID_BACKUP = 1003
+    const val ID_AUTO_BACKUP = 1004
+    const val ID_AUTO_BACKUP_STALE = 1005
+    const val ID_AUTO_BACKUP_SETUP = 1006
+
+    /** Intent extra (Phase 36): tap should land on Settings → Backup & restore. */
+    const val EXTRA_OPEN_BACKUP = "open_backup"
 
     fun ensureChannel(context: Context) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -30,14 +36,14 @@ object Notifier {
         }
     }
 
-    fun show(context: Context, id: Int, title: String, text: String) {
+    fun show(context: Context, id: Int, title: String, text: String, openBackup: Boolean = false) {
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher_foreground)
             .setContentTitle(title)
             .setContentText(text)
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-            .setContentIntent(openAppIntent(context, id))
+            .setContentIntent(openAppIntent(context, id, openBackup))
             .build()
         runCatching { NotificationManagerCompat.from(context).notify(id, notification) }
     }
@@ -48,13 +54,14 @@ object Notifier {
      * `singleTask` on MainActivity, never a second instance). Immutable PendingIntent per
      * Android 12+ requirements.
      */
-    private fun openAppIntent(context: Context, requestCode: Int): PendingIntent {
+    private fun openAppIntent(context: Context, requestCode: Int, openBackup: Boolean = false): PendingIntent {
         val launch = context.packageManager.getLaunchIntentForPackage(context.packageName)
             ?: Intent(context, MainActivity::class.java).apply {
                 action = Intent.ACTION_MAIN
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
         launch.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        if (openBackup) launch.putExtra(EXTRA_OPEN_BACKUP, true)
         return PendingIntent.getActivity(
             context,
             requestCode,

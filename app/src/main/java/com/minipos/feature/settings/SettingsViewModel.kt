@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -53,7 +54,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setBackupReminderEnabled(enabled: Boolean) = viewModelScope.launch {
         reminderPrefs.setEnabled(enabled)
         val context = getApplication<Application>()
-        if (enabled) {
+        // Phase 32: while automatic backup is active the reminder stays cancelled.
+        val autoActive = ServiceLocator.autoBackupPrefs.settings.first().active
+        if (enabled && !autoActive) {
             BackupReminderScheduler.schedule(context, backupReminderHour.value, backupReminderMinute.value)
         } else {
             BackupReminderScheduler.cancel(context)
@@ -62,7 +65,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setBackupReminderTime(hour: Int, minute: Int) = viewModelScope.launch {
         reminderPrefs.setTime(hour, minute)
-        if (backupReminderEnabled.value) {
+        val autoActive = ServiceLocator.autoBackupPrefs.settings.first().active
+        if (backupReminderEnabled.value && !autoActive) {
             BackupReminderScheduler.schedule(getApplication(), hour, minute)
         }
     }

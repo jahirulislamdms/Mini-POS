@@ -17,8 +17,9 @@ android {
         applicationId = "com.minipos"
         minSdk = 24
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        // Phase 35: version tracks the latest completed Future Updates phase (v1.<phase>).
+        versionCode = 37
+        versionName = "1.37"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -85,6 +86,9 @@ dependencies {
     // Barcodes (Phase 28): camera scanning + CODE-128 label generation — fully offline
     implementation(libs.zxing.android.embedded)
     implementation(libs.zxing.core)
+
+    // SAF folder access for automatic backups (Phase 32)
+    implementation(libs.androidx.documentfile)
 
     // java.time desugaring
     coreLibraryDesugaring(libs.desugar.jdk.libs)

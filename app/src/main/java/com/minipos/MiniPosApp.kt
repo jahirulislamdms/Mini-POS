@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import com.minipos.notify.AutoBackupScheduler
 import com.minipos.notify.BackupReminderScheduler
 import com.minipos.notify.Notifier
 import com.minipos.notify.ReminderWorker
@@ -24,6 +25,7 @@ class MiniPosApp : Application() {
         Notifier.ensureChannel(this)
         scheduleReminders()
         scheduleBackupReminder()
+        syncAutoBackup()
         backfillBarcodes()
     }
 
@@ -43,15 +45,29 @@ class MiniPosApp : Application() {
         )
     }
 
-    /** Align the daily backup reminder with the saved enabled/time prefs. */
+    /**
+     * Align the daily backup reminder with the saved enabled/time prefs. Suppressed while
+     * automatic backup is active (Phase 32) — backups are created without the user's help.
+     */
     private fun scheduleBackupReminder() {
         CoroutineScope(Dispatchers.Default).launch {
             val prefs = ServiceLocator.backupReminderPrefs
-            if (prefs.enabled.first()) {
+            val autoActive = ServiceLocator.autoBackupPrefs.settings.first().active
+            if (prefs.enabled.first() && !autoActive) {
                 BackupReminderScheduler.schedule(this@MiniPosApp, prefs.hour.first(), prefs.minute.first())
             } else {
                 BackupReminderScheduler.cancel(this@MiniPosApp)
             }
+        }
+    }
+
+    /**
+     * Phase 32: run a missed automatic backup right away (device was off / app closed at the
+     * scheduled time), otherwise just make sure the next run is scheduled.
+     */
+    private fun syncAutoBackup() {
+        CoroutineScope(Dispatchers.Default).launch {
+            runCatching { AutoBackupScheduler.sync(this@MiniPosApp) }
         }
     }
 }
