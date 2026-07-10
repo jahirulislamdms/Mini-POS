@@ -6,6 +6,7 @@
 </p>
 
 <p align="center">
+  <img alt="Version" src="https://img.shields.io/badge/Version-v1.37-blue">
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android-3DDC84?logo=android&logoColor=white">
   <img alt="Language" src="https://img.shields.io/badge/Language-Kotlin-7F52FF?logo=kotlin&logoColor=white">
   <img alt="UI" src="https://img.shields.io/badge/UI-Jetpack%20Compose-4285F4?logo=jetpackcompose&logoColor=white">
@@ -17,8 +18,11 @@
 
 MINI POS lets a shopkeeper run **sell / buy / expense / due (baki)** bookkeeping and **inventory** for one or
 more shops, entirely on-device — with **barcode scanning**, **receipt printing**, **PDF reports**, a **cash
-drawer**, and a central **activity log with undo**. No accounts, no internet, no cloud, no ads.
-Currency is **BDT (৳)**.
+drawer**, **automatic scheduled backups**, and a central **activity log with undo**. No accounts, no internet,
+no cloud, no ads. Currency is **BDT (৳)**.
+
+**Current app version: v1.37** — the version tracks the latest completed feature phase (v1.\<phase\>) and is
+shown in **Settings → About MINI POS**.
 
 Made by **[Jahirul Islam](https://jahirulislam.info/)**.
 
@@ -40,6 +44,7 @@ Made by **[Jahirul Islam](https://jahirulislam.info/)**.
 - [Build from the command line](#build-from-the-command-line)
 - [Data, storage & migrations](#data-storage--migrations)
 - [Backup & restore](#backup--restore)
+- [Automatic backups](#automatic-backups-offline-scheduled)
 - [Printing](#printing)
 - [Notifications](#notifications)
 - [Permissions](#permissions)
@@ -77,10 +82,11 @@ Key design rules:
 | 📄 **PDF reports** | Every report exports to PDF — preview, save, or print |
 | 🖨️ **Printing Settings** | One hub: per-item receipt/report content, shop logo, paper, fonts, alignment |
 | 💰 **Cash Drawer** | Daily opening→closing cash, auto-carried, per-day transaction list |
-| 📊 **Reports** | Business, Stock, Buy, Category, Cash Management, Daily, Product History |
+| 📊 **Reports** | Sales, Buy, Expense, Business, Stock, Category, Cash Management, Daily, Due Ledger, Product History |
 | ↩️ **Activities & Undo** | Central 30-day activity log; safely undo any transaction |
 | 🔐 **License activation** | Offline, device-locked RSA license system |
 | 💾 **Backup & restore** | Per-shop `.zip` export/import, backward compatible |
+| ⏰ **Automatic backups** | Scheduled backups to a folder you pick — verified on setup, keeps the latest 15 |
 
 ---
 
@@ -94,9 +100,12 @@ Key design rules:
 ### Home dashboard (redesigned)
 - Yellow hero header that blends into the status bar, titled **MINI POS | Shop Name**, with a prominent
   **Current Balance** (the shop's petty cash) and a Day/Month toggle.
-- Summary cards: today's/this month's sales & expenses, you'll receive / you'll give, **Types of Products**,
-  **Total Units**, **Stock Value**.
-- Big **Sell**/**Buy** buttons + Quick Access grid (Cash Drawer, Sales, Purchases, Expenses, Due, Reports).
+- Summary cards: today's/this month's sales & expenses, you'll receive / you'll give, plus an equal-tile
+  **Inventory** row (**Types of Products**, **Total Units**, **Stock Value**).
+- Big **Sell**/**Buy** buttons.
+- **Ledger Books** — a balanced 2×2 grid: **Sales Ledger** (Daily Transactions Report), **Buy Ledger**
+  (Buy Report), **Due Ledger** (Baki) and **Expense Ledger** (Expenses).
+- **Quick Access** — Cash Drawer, Sales (completed sales & receipt reprint) and Products.
 - **Recent Activity** — the 10 latest activities, same unified feed as Settings → Activities (view-only).
 
 ### Sell
@@ -157,12 +166,17 @@ Key design rules:
 
 ### Reports (all PDF-exportable: preview · save · print)
 - **Daily Transactions** — sales + purchases by day or range (≤ 1 month), totals + profit + itemized lines.
+- **Sales Report** — **Total Sales + Total Profit** for the period, then one invoice card per sale
+  (date/time, invoice number, Cash/Due, prominent total, customer when available) listing **every product
+  sold** (qty × price, line total) with a Paid/Due footer; day / month / custom range.
 - **Stock Report** — total units, stock value, per-product breakdown, movement history.
 - **Business Report** — money in/out, net balance, profit (cash/due/total), date-filtered.
 - **Buy Report** — all purchases (cash & due) with line items and the period's total buy amount.
+- **Expense Report** — record & review expenses (lives on the Reports page).
 - **Category Report** — per-product bought/sold quantities, amounts and profit by category/subcategory,
   plus a current-stock summary for the selection.
 - **Cash Management Report** — cash in/out by day, month or custom range with totals.
+- **Due Ledger (Baki)** — also reachable from the Reports page.
 
 ### Receipts & printing
 - **Thermal-style receipts** for every sale and purchase (invoice number, items, totals, payment info, footer)
@@ -179,11 +193,27 @@ Key design rules:
   replace) lives in Settings. Only the **public key** ships in the app; the license-generator tooling is kept
   in a private folder that is **never** committed to this repository.
 
+### Automatic backups (offline, scheduled)
+- **Settings → Backup & restore → Automatic backup** — enabled by default; runs only after you pick a backup
+  folder once with the system folder picker (remembered across restarts, changeable anytime).
+- Configurable **frequency** (default every day) and **time** (default 11:00 PM); backups run in the background
+  (WorkManager) using the **same zip format as manual backups**.
+- **Folder verification**: picking a folder immediately creates a real backup — success is confirmed on screen;
+  failures show the exact reason (access denied, storage unavailable, insufficient space, …) and the folder is
+  not adopted.
+- **Retention**: keeps the newest **15 automatic** backups (manual backups are never touched).
+- **Missed-backup catch-up**: if the phone was off at the scheduled time, the backup runs on the next app open.
+- **Reminders**: a daily 11:00 AM "finish setup" notification while no folder is chosen (tap → Backup page),
+  a failure notification with the reason, and an alert if no backup succeeded for 3 days. The manual backup
+  reminder is suppressed while automatic backup is active.
+
 ### Settings & notifications
-- Shop, catalog (incl. **default unit** with a per-unit "Set default" action), money, activity, data, license
-  and about sections.
-- Local notifications: **low-stock**, **due reminder**, and a daily **backup reminder** (customizable time).
-  Tapping any notification opens the app correctly (no duplicate instances).
+- **Reorganized Settings** — seven grouped sections (Shop · Inventory · Money · Printing · Notifications ·
+  Data & history · App), one card per group.
+- **About MINI POS** shows the current app version (**v1.37**), which tracks the latest completed feature phase.
+- Local notifications: **low-stock**, **due reminder**, a daily **backup reminder** (customizable time), and the
+  automatic-backup notifications above. Tapping any notification opens the app correctly (no duplicate
+  instances); the backup-setup reminder deep-links to the Backup page.
 - Branded **splash screen** (1.5 s, yellow, wave-animated wordmark).
 
 ---
@@ -194,8 +224,9 @@ Key design rules:
 - **UI:** Jetpack Compose (Material 3), Navigation-Compose
 - **Architecture:** MVVM (ViewModel + StateFlow), manual DI via a `ServiceLocator`
 - **Persistence:** Room (SQLite) with KSP, exported schemas, explicit migrations (currently **v7**)
-- **Preferences:** Jetpack DataStore (current shop, reminders, license, printing settings)
-- **Background work / notifications:** WorkManager + NotificationCompat
+- **Preferences:** Jetpack DataStore (current shop, reminders, automatic backup, license, printing settings)
+- **Background work / notifications:** WorkManager + NotificationCompat (reminders + scheduled automatic backups)
+- **Folder access:** Storage Access Framework + `androidx.documentfile` (automatic backups into a user-picked folder)
 - **Serialization:** kotlinx.serialization (backup JSON)
 - **Barcodes:** ZXing (`zxing-android-embedded` + `core`) — camera scanning & CODE-128 generation, offline
 - **Printing / PDF:** Android `PdfDocument` + print framework (receipts, labels, reports), FileProvider previews
@@ -255,13 +286,14 @@ MiniPOS/
 │       │   │   ├── dao/             # one DAO per domain
 │       │   │   ├── db/              # MiniPosDatabase, Converters, Migrations (v1→v7)
 │       │   │   ├── repo/            # repositories (sales, purchases, products, cash drawer, …)
-│       │   │   ├── prefs/           # CurrentShopManager, BackupReminderPrefs (DataStore)
+│       │   │   ├── prefs/           # CurrentShopManager, BackupReminderPrefs, AutoBackupPrefs (DataStore)
 │       │   │   └── backup/          # BackupManager (ZIP export/import)
 │       │   ├── feature/             # home, sell, buy, product, category, salesledger, purchaseledger,
 │       │   │                        # expense, due, report, shop, settings, cash, cashdrawer, backup,
 │       │   │                        # activity (undo log), barcode (scanner), barcodeprint (labels),
 │       │   │                        # license (offline activation), splash
-│       │   └── notify/              # Notifier, ReminderWorker, BackupReminderScheduler/Worker
+│       │   └── notify/              # Notifier, ReminderWorker, BackupReminder* + AutoBackup* (runner,
+│       │                            # scheduler, workers — scheduled automatic backups)
 │       └── res/                     # icons, themes (incl. v31 splash), strings, FileProvider paths
 ├── gradle/
 │   ├── libs.versions.toml          # version catalog (single source of dependency versions)
@@ -392,6 +424,9 @@ Output APK: `app/build/outputs/apk/debug/app-debug.apk`.
 - **Restore** reads a `.zip`, validates the manifest, and inserts everything under a **new shop**, remapping all
   foreign keys and rewriting image paths. Products without barcodes (from older backups) get unique barcodes
   automatically. Backup schema is currently **v4**; older versions (v2+) remain restorable.
+- **Automatic backups** write the same `.zip` format to your chosen folder on a schedule, named
+  `MiniPOSAuto_<shop>_<timestamp>.zip`, keeping the newest 15 (manual backups are never deleted) — see
+  [Automatic backups](#automatic-backups-offline-scheduled).
 
 ---
 
@@ -415,7 +450,10 @@ All notifications are **local** (no internet). Managed with WorkManager and gate
 - **Low-stock alert** — daily check; notifies when products are at/below their threshold.
 - **Due reminder** — daily reminder of money to collect.
 - **Backup reminder** — daily reminder to back up your data; **enable/disable** and a **customizable time**
-  (default **10:00 PM**).
+  (default **10:00 PM**). Automatically suppressed while **automatic backup** is active.
+- **Automatic backup notifications** — a daily 11:00 AM setup reminder while no backup folder is chosen
+  (tapping it opens the Backup page), a failure alert with the reason, and a warning when no automatic backup
+  has succeeded for 3 days.
 
 Tapping any notification opens the app (cold-launches it, or brings the existing instance to the foreground —
 never a duplicate). On Android 13+ the app requests the `POST_NOTIFICATIONS` permission on first launch.
@@ -440,6 +478,7 @@ Defined centrally in `gradle/libs.versions.toml`:
 
 | Component | Version |
 |---|---|
+| **App (versionName / versionCode)** | **1.37 / 37** — tracks the latest completed feature phase |
 | Android Gradle Plugin | 9.2.1 |
 | Kotlin (built-in via AGP) | 2.2.10 |
 | Gradle (wrapper) | 9.4.1 |
@@ -452,6 +491,7 @@ Defined centrally in `gradle/libs.versions.toml`:
 | WorkManager | 2.11.2 |
 | Coil | 3.4.0 |
 | ZXing (android-embedded / core) | 4.3.0 / 3.5.3 |
+| DocumentFile (SAF folders) | 1.0.1 |
 | Coroutines / Serialization JSON | 1.11.0 |
 | desugar_jdk_libs | 2.1.5 |
 | minSdk / targetSdk / compileSdk | 24 / 34 / 36 |
@@ -469,7 +509,7 @@ Three control files define the project and should be read before contributing:
 - **`CONVENTIONS.md`** — HOW the code is written: package layout, color/type tokens, MVVM + Room rules,
   money-as-Long-paisa, multi-shop `shopId` scoping, reusable components.
 - **`PROGRESS.md`** — WHERE the project stands: current position, task checklist, decisions, and a log of all
-  31 completed post-release feature phases.
+  37 completed post-release feature phases (the app version mirrors the latest phase: **v1.37**).
 - **`CLAUDE.md`** — a short pointer file with the rule: *always read `BUILD_PLAN.md` and `PROGRESS.md` before
   starting work.*
 
